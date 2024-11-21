@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, Automated Trading Ltd."
 #property link      "https://github.com/H4ck3r217/Trading-Bots"
-#property version   "1.0.0"
+#property version   "1.0"
 #property description "OnChart-drawn support, resistance and trendlines"
 
 #property indicator_chart_window
@@ -40,7 +40,7 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
                 
                 
                 
-      
+   return(rates_total);
 }
 
 
