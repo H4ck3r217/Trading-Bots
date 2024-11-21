@@ -58,92 +58,94 @@ int OnInit(){
 
 int OnCalculate(const int rates_total,const int prev_calculated,const datetime &time[],const double &open[],const double &high[],const double &low[],const double &close[],const long &tick_volume[],const long &volume[],const int &spread[]){
                 
-  int limit = rates_total - prev_calculated;
-  //--- counting from 0 to rates_total
-  ArraySetAsSeries(Buffer1, true);
-  ArraySetAsSeries(Buffer2, true);
-  //--- initial zero
-  if(prev_calculated < 1){
+    int limit = rates_total - prev_calculated;
+    //--- counting from 0 to rates_total
+    ArraySetAsSeries(Buffer1, true);
+    ArraySetAsSeries(Buffer2, true);
+    //--- initial zero
+    if(prev_calculated < 1){
 
-    ArrayInitialize(Buffer1, EMPTY_VALUE);
-    ArrayInitialize(Buffer2, EMPTY_VALUE);
-  }
-  else
-    limit++;            
+      ArrayInitialize(Buffer1, EMPTY_VALUE);
+      ArrayInitialize(Buffer2, EMPTY_VALUE);
+    }
+    else
+      limit++;            
+                
+    if(CopyLow(Symbol(), PERIOD_CURRENT, 0, rates_total, Low) <= 0) return(rates_total);
+    ArraySetAsSeries(Low, true);
+    if(CopyHigh(Symbol(), PERIOD_CURRENT, 0, rates_total, High) <= 0) return(rates_total);
+    ArraySetAsSeries(High, true);
+                
+    for(int i = limit-1; i >= 0; i--){
+
+      if(i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
+
+      // Get the total number of objects on the chart
+      int totalObjects = ObjectsTotal(0, -1, -1);
+      double currentPrice = SymbolInfoDouble(Symbol(),SYMBOL_BID);
+
+      for(int i = 0; i < totalObjects; i++){
+        // Get the object name
+        string LowerTrendline = ObjectName(0, i);  
+        
+        // Ensure the object exists and is a trendline
+        if(ObjectFind(0, LowerTrendline) != -1 && ObjectGetInteger(0, LowerTrendline, OBJPROP_TYPE) == OBJ_TREND){
+            
+          // Check if the trendline name contains 'l' (can be lowercase or uppercase)
+          if(StringFind(LowerTrendline, "l") > -1 || StringFind(LowerTrendline, "L") > -1){
+
+            Print("Found trendline: ", LowerTrendline);  // Debugging output
+
+            // Search for the previous green candlestick (resistance order block)
+            int green_candle_index = FindPreviousGreenCandleAboveTrendline(LowerTrendline, currentPrice);
+
+            // Debugging: check if green candle index is valid
+            Print("Green candle index: ", green_candle_index);
+
+            if(green_candle_index != -1){
+
+              Print("should draw orderBlock here"); // Debugging output
               
-  if(CopyLow(Symbol(), PERIOD_CURRENT, 0, rates_total, Low) <= 0) return(rates_total);
-  ArraySetAsSeries(Low, true);
-  if(CopyHigh(Symbol(), PERIOD_CURRENT, 0, rates_total, High) <= 0) return(rates_total);
-  ArraySetAsSeries(High, true);
-              
-  for(int i = limit-1; i >= 0; i--){
+              // Draw the order block (resistance zone)
+              DrawOrderBlock(green_candle_index, clrBlack);
+              Print("Drawing order block for index: ", green_candle_index);
 
-    if(i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
+              // Get high and low of the OB
+              double ob_high = iHigh(_Symbol, _Period, green_candle_index);
+              double ob_low = iLow(_Symbol, _Period, green_candle_index);
 
-    // Get the total number of objects on the chart
-    int totalObjects = ObjectsTotal(0, -1, -1);
-    double currentPrice = SymbolInfoDouble(Symbol(),SYMBOL_BID);
+              // Debugging: check if high and low are correct
+              Print("OB High: ", ob_high, " OB Low: ", ob_low);
 
-    for(int i = 0; i < totalObjects; i++){
-      // Get the object name
-      string LowerTrendline = ObjectName(0, i);  
-      
-      // Ensure the object exists and is a trendline
-      if(ObjectFind(0, LowerTrendline) != -1 && ObjectGetInteger(0, LowerTrendline, OBJPROP_TYPE) == OBJ_TREND){
-          
-        // Check if the trendline name contains 'l' (can be lowercase or uppercase)
-        if(StringFind(LowerTrendline, "l") > -1 || StringFind(LowerTrendline, "L") > -1){
+              // Wait for price to retest the OB
+              /*if(IsPriceRetestingOB(ob_high, ob_low)) {
 
-          Print("Found trendline: ", LowerTrendline);  // Debugging output
-
-          // Search for the previous green candlestick (resistance order block)
-          int green_candle_index = FindPreviousGreenCandleAboveTrendline(LowerTrendline, currentPrice);
-
-          // Debugging: check if green candle index is valid
-          Print("Green candle index: ", green_candle_index);
-
-          if(green_candle_index != -1){
-
-            // Draw the order block (resistance zone)
-            DrawOrderBlock(green_candle_index, clrLime);
-            Print("Drawing order block for index: ", green_candle_index);
-
-            // Get high and low of the OB
-            double ob_high = iHigh(_Symbol, _Period, green_candle_index);
-            double ob_low = iLow(_Symbol, _Period, green_candle_index);
-
-            // Debugging: check if high and low are correct
-            Print("OB High: ", ob_high, " OB Low: ", ob_low);
-
-            // Wait for price to retest the OB
-            /*if(IsPriceRetestingOB(ob_high, ob_low)) {
-
-              // Retest confirmed, plot sell arrow
-              DrawArrowSell("LowerTrendSell", i, dynamic_arrow, clrBlack, arrowSellFilter);
-            }*/
+                // Retest confirmed, plot sell arrow
+                DrawArrowSell("LowerTrendSell", i, dynamic_arrow, clrBlack, arrowSellFilter);
+              }*/
+            }
           }
         }
       }
+
+
+      /*int trendObjects = ObjectsTotal(0, 0, OBJ_TREND);
+      for(int j = 0; j < trendObjects; j++){
+
+        string objectName = ObjectName(0, j, 0, OBJ_TREND);
+        if(StringFind(objectName, "l") != -1){
+
+          Print("Trendline: ",objectName," detected!");
+        
+        }
+        
+        if(StringFind(objectName, "u") != -1){
+
+          Print("Trendline: ",objectName," detected!");
+        
+        }
+      }*/           
     }
-
-
-    /*int trendObjects = ObjectsTotal(0, 0, OBJ_TREND);
-    for(int j = 0; j < trendObjects; j++){
-
-      string objectName = ObjectName(0, j, 0, OBJ_TREND);
-      if(StringFind(objectName, "l") != -1){
-
-        Print("Trendline: ",objectName," detected!");
-      
-      }
-      
-      if(StringFind(objectName, "u") != -1){
-
-        Print("Trendline: ",objectName," detected!");
-      
-      }
-    }*/           
-  }
                 
   return(rates_total);
 }
@@ -290,13 +292,15 @@ double TrendlinePriceUpper(int shift){
     return (maxprice == -DBL_MAX) ? -1 : maxprice;  // Return the highest trendline price found, or -1 if none
 }
 
+
 int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
     
   // Get current bar count
   int totalBars = Bars(_Symbol, _Period);
 
   // Check if the trendline object exists
-  if(ObjectFind(0, trendlineName) < 0) {
+  if(ObjectFind(0, trendlineName) < 0){
+
     Print("Trendline not found: ", trendlineName);
     return -1;
   }
@@ -313,7 +317,7 @@ int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPr
     double close_price = iClose(_Symbol, _Period, i);
 
     // Check if the close price is above the trendline
-    if(close_price > trendlinePrice) {
+    if(close_price < trendlinePrice){
 
       // Check the previous 50 bars for a green candle
       for(int j = i; j <= i + 10 && j < totalBars; j++){
@@ -337,7 +341,7 @@ int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPr
   return -1;
 }
 
-int FindPreviousRedCandleBelowTrendline(string trendlineName, double currentPrice) {
+/*int FindPreviousRedCandleBelowTrendline(string trendlineName, double currentPrice) {
     
   // Get current bar count
   int totalBars = Bars(_Symbol, _Period);
@@ -394,7 +398,7 @@ void DrawOrderBlock(int candle_index, color block_color){
   string obj_name = "OrderBlock_" + IntegerToString(TimeCurrent());
 
   // Create a rectangle representing the order block
-  if(!ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, Time[0], low_price)){
+  if(!ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, Time[1], low_price)){
 
     Print("Error creating order block: ", GetLastError());
     return;
@@ -405,11 +409,38 @@ void DrawOrderBlock(int candle_index, color block_color){
   ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, 2);              // Border width
   ObjectSetInteger(0, obj_name, OBJPROP_STYLE, STYLE_SOLID);    // Line style
   ObjectSetInteger(0, obj_name, OBJPROP_RAY_RIGHT, true);       // Extend the rectangle to the right
+}*/
+
+void DrawOrderBlock(int candle_index, color block_color){
+
+  // Access high and low of the candlestick
+  double high_price = iHigh(_Symbol, _Period, candle_index);
+  double low_price = iLow(_Symbol, _Period, candle_index);
+
+  // Create object name
+  string obj_name = "OrderBlock_" + IntegerToString(TimeCurrent()) + "_" + IntegerToString(candle_index);
+
+  // Create order block rectangle
+  if(ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, D'1970.01.01 00:00', low_price)){
+    
+    // Set the properties of the rectangle (order block)
+    ObjectSetInteger(0, obj_name, OBJPROP_COLOR, block_color);    // Set color
+    ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, 2);              // Border width
+    ObjectSetInteger(0, obj_name, OBJPROP_STYLE, STYLE_SOLID);    // Line style
+    ObjectSetInteger(0, obj_name, OBJPROP_RAY_RIGHT, true);       // Extend the rectangle to the right
+  }
+
+  else{
+        
+    Print("Error creating order block: ", GetLastError());
+    return;
+  }
 }
 
 
-/*//Advanced
-int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
+
+//Advanced
+/*int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
     // Get the total number of bars
     int totalBars = Bars(_Symbol, _Period);
 
@@ -473,4 +504,127 @@ void DrawLine(string objname, double price, int count, int start_index) //create
       ObjectSetInteger(0, objname, OBJPROP_STYLE, STYLE_SOLID);
       ObjectSetInteger(0, objname, OBJPROP_WIDTH, 2);
      }
-}*/
+}
+
+
+// Function to calculate the resistance or support zone range
+double CalculateRange(double high, double low) {
+    return (high - low) / 2;
+}
+
+// Function to check for resistance zone and handle arrow creation
+void CheckResistance(string objectName, double price, double dynamic_arrow, int i) {
+    double rectangleHigh = ObjectGetDouble(0, objectName, OBJPROP_PRICE, 0);
+    double rectangleLow = ObjectGetDouble(0, objectName, OBJPROP_PRICE, 1);
+
+    if (rectangleLow > price) {
+        double closestResistanceHigh = rectangleLow;
+        double sellRange = rectangleLow - CalculateRange(rectangleHigh, rectangleLow);
+        double sellStop = rectangleHigh + CalculateRange(rectangleHigh, rectangleLow);
+
+        if (price < rectangleHigh) {
+            PrintFormat("\nEntered Resistance Zone: Time = %s, Price = %f", TimeToString(TimeLocal()), price);
+
+            if (Close[i+1] > rectangleLow && Close[i] < rectangleLow){
+                Print("Checking for sell arrow...");
+                DrawArrow("Res_Sell", i, High[i] + dynamic_arrow, clrBlack, arrowSellFilter);
+            }
+        }
+
+        // Add stop loss or other conditions as needed
+        if (price < sellStop && price > rectangleLow) {
+            // Price above Resistance Zone, don't put SELL orders
+        }
+        if (price > sellStop) {
+            // Stop Loss
+        }
+    }
+}
+
+// Function to check for support zone and handle arrow creation
+void CheckSupport(string objectName, double price, double dynamic_arrow, int i) {
+    double rectangleHigh = ObjectGetDouble(0, objectName, OBJPROP_PRICE, 0);
+    double rectangleLow = ObjectGetDouble(0, objectName, OBJPROP_PRICE, 1);
+
+    if (rectangleHigh < price) {
+        double closestSupportLow = rectangleHigh;
+        double buyRange = rectangleHigh + CalculateRange(rectangleHigh, rectangleLow);
+        double buyStop = rectangleLow - CalculateRange(rectangleHigh, rectangleLow);
+
+        if (price > rectangleLow) {
+            PrintFormat("\nEntered Support Zone: Time = %s, Price = %f", TimeToString(TimeLocal()), price);
+
+            if (Close[i+1] < rectangleHigh && Close[i] > rectangleHigh) {
+                Print("Checking for buy arrow...");
+                DrawArrow("Sup_Buy", i, Low[i] - dynamic_arrow, clrBlack, arrowBuyFilter);
+            }
+        }
+
+        // Add stop loss or other conditions as needed
+        if (price > buyStop && price < rectangleLow) {
+            // Price below Support Zone, don't put BUY orders
+        }
+        if (price < buyStop) {
+            // Stop Loss
+        }
+    }
+}
+
+// Function to draw an arrow if not recently drawn
+void DrawArrow(string arrowPrefix, int i, double arrowPrice, color arrowColor, int arrowFilter) {
+    bool arrowExists = false;
+    for (int k = 0; k < maxBars - oldBars; k++) {
+        string arrowName = ObjectName(0, k);
+        if (StringFind(arrowName, arrowPrefix) > -1) {
+            datetime arrowTime = (datetime)ObjectGetInteger(0, arrowName, OBJPROP_TIME);
+            if (Time[i] - arrowTime < PeriodSeconds() * arrowFilter) {
+                arrowExists = true;
+                break;
+            }
+        }
+    }
+
+    if (!arrowExists) {
+        string arrowName = arrowPrefix + "#" + IntegerToString(Time[i]);
+        if (!IsArrowExists(arrowName, Time[i])) {
+            ObjectCreate(0, arrowName, OBJ_ARROW, 0, Time[i], arrowPrice);
+            ObjectSetInteger(0, arrowName, OBJPROP_COLOR, arrowColor);
+            ObjectSetInteger(0, arrowName, OBJPROP_WIDTH, 3);
+            ObjectSetInteger(0, arrowName, OBJPROP_ARROWCODE, arrowPrefix == "Res_Sell" ? 234 : 233);
+            ObjectSetInteger(0, arrowName, OBJPROP_ANCHOR, arrowPrefix == "Res_Sell" ? ANCHOR_TOP : ANCHOR_BOTTOM);
+            ObjectSetInteger(0, arrowName, OBJPROP_HIDDEN, false);
+            ObjectSetInteger(0, arrowName, OBJPROP_BACK, true);
+        }
+    }
+}
+
+// Improved Function to Draw Arrows
+void DrawTArrow(string arrowPrefix, int i, double arrowPrice, color arrowColor, int arrowFilter){
+
+   bool arrowExists = false;
+   int totalObjects = ObjectsTotal();
+   
+   for (int k = 0; k < totalObjects; k++) {
+
+      string arrowName = ObjectName(0, k);
+      if (StringFind(arrowName, arrowPrefix) > -1) {
+         datetime arrowTime = (datetime)ObjectGetInteger(0, arrowName, OBJPROP_TIME);
+         if (Time[i] - arrowTime < PeriodSeconds() * arrowFilter) {
+            arrowExists = true;
+            break;
+         }
+      }
+   }
+
+   if (!arrowExists) {
+      string arrowName = arrowPrefix + "#" + IntegerToString(Time[i]);
+      ObjectCreate(0, arrowName, OBJ_ARROW, 0, Time[i], arrowPrice);
+      ObjectSetInteger(0, arrowName, OBJPROP_COLOR, arrowColor);
+      ObjectSetInteger(0, arrowName, OBJPROP_WIDTH, 3);
+      ObjectSetInteger(0, arrowName, OBJPROP_ARROWCODE, arrowPrefix == "Res_Sell" ? 234 : 233);
+      ObjectSetInteger(0, arrowName, OBJPROP_ANCHOR, arrowPrefix == "Res_Sell" ? ANCHOR_TOP : ANCHOR_BOTTOM);
+      ObjectSetInteger(0, arrowName, OBJPROP_HIDDEN, false);
+      ObjectSetInteger(0, arrowName, OBJPROP_BACK, true);
+   }
+}
+*/
