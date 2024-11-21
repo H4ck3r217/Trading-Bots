@@ -12,6 +12,22 @@
 #property indicator_buffers 2
 #property indicator_plots 2
 
+#property indicator_type1 DRAW_ARROW
+#property indicator_width1 3
+#property indicator_color1 0xFFAA00
+#property indicator_label1 "Buy"
+
+#property indicator_type2 DRAW_ARROW
+#property indicator_width2 3
+#property indicator_color2 0x0000FF
+#property indicator_label2 "Sell"
+
+double Buffer1[];
+double Buffer2[];
+
+double Low[];
+double High[];
+
 #define PLOT_MAXIMUM_BARS_BACK 250
 #define OMIT_OLDEST_BARS 50
 
@@ -22,7 +38,14 @@
 int OnInit(){
 
 
-   
+   SetIndexBuffer(0, Buffer1);
+   PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+   PlotIndexSetInteger(0, PLOT_DRAW_BEGIN, MathMax(Bars(Symbol(), PERIOD_CURRENT)-PLOT_MAXIMUM_BARS_BACK+1, OMIT_OLDEST_BARS+1));
+   PlotIndexSetInteger(0, PLOT_ARROW, 241);
+   SetIndexBuffer(1, Buffer2);
+   PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+   PlotIndexSetInteger(1, PLOT_DRAW_BEGIN, MathMax(Bars(Symbol(), PERIOD_CURRENT)-PLOT_MAXIMUM_BARS_BACK+1, OMIT_OLDEST_BARS+1));
+   PlotIndexSetInteger(1, PLOT_ARROW, 242);
 
   return(INIT_SUCCEEDED);
 }
@@ -33,21 +56,51 @@ int OnInit(){
 
 int OnCalculate(const int rates_total,const int prev_calculated,const datetime &time[],const double &open[],const double &high[],const double &low[],const double &close[],const long &tick_volume[],const long &volume[],const int &spread[]){
                 
+    int limit = rates_total - prev_calculated;
+    //--- counting from 0 to rates_total
+    ArraySetAsSeries(Buffer1, true);
+    ArraySetAsSeries(Buffer2, true);
+    //--- initial zero
+    if(prev_calculated < 1)
+     {
+      ArrayInitialize(Buffer1, EMPTY_VALUE);
+      ArrayInitialize(Buffer2, EMPTY_VALUE);
+     }
+    else
+      limit++;            
                 
+    if(CopyLow(Symbol(), PERIOD_CURRENT, 0, rates_total, Low) <= 0) return(rates_total);
+    ArraySetAsSeries(Low, true);
+    if(CopyHigh(Symbol(), PERIOD_CURRENT, 0, rates_total, High) <= 0) return(rates_total);
+    ArraySetAsSeries(High, true);
                 
+    for(int i = limit-1; i >= 0; i--){
 
-                
-                
-                
+      if (i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
+                  
+    }
                 
   return(rates_total);
 }
-
 
 //+------------------------------------------------------------------+
 //| Custom functions                                                 |
 //+------------------------------------------------------------------+
 
+void myAlert(string type, string message){
+   if(type == "print")
+      Print(message);
+   else if(type == "error")
+     {
+      Print(type+" | trendlines @ "+Symbol()+","+IntegerToString(Period())+" | "+message);
+     }
+   else if(type == "order")
+     {
+     }
+   else if(type == "modify")
+     {
+     }
+}
 
 bool IsPriceRetestingOB(double high_price, double low_price, int &retest){
 
@@ -98,7 +151,7 @@ double TrendlinePriceLower(int shift) {
 
     for(int i = 0; i < obj_total; i++) {
         string name = ObjectName(0, i);  // Get the object name
-        name = StringTrimRight(name);  // Trim any extra spaces
+        
         
         // Check if the object is a trendline
         if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND) {
@@ -171,36 +224,6 @@ double TrendlinePriceUpper(int shift){
     
     return (maxprice == -DBL_MAX) ? -1 : maxprice;  // Return the highest trendline price found, or -1 if none
 }
-
-bool IsPriceRetestingOB(double high_price, double low_price, int &retest){
-
-    double current_price = iClose(_Symbol, _Period, 0); // Current price
-    double price = iHigh(_Symbol, _Period, 0);  // High price of the current bar
-    retest = 0;
-
-    // Check if price is below the OB low and high is above the OB low (retest condition)
-    if(current_price < low_price && price > low_price){
-        retest++;
-        Print("Price retesting OB, retest count: ", retest);
-        return true;  // Price is retesting the OB
-    }
-
-    return false;  // No retest detected
-}
-
-bool IsPriceWithinOB(double high_price, double low_price){
-
-    double current_price = iClose(_Symbol, _Period, 0); // Current price
-
-    // Check if price is within the OB range
-    if(current_price >= low_price && current_price <= high_price){
-        Print("Price within OB");
-        return true;  // Price is within the OB
-    }
-
-    return false;  // Price is outside the OB
-}
-
 
 int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice) {
     
@@ -296,3 +319,69 @@ int FindPreviousRedCandleBelowTrendline(string trendlineName, double currentPric
   return -1;
 }
 
+/*//Advanced
+int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
+    // Get the total number of bars
+    int totalBars = Bars(_Symbol, _Period);
+
+    // Start looking from the most recent bar and move backwards
+    for(int i = totalBars - 2; i >= 10; i--)
+    {
+        // Get the trendline price at this bar's time
+        double trendlinePrice = ObjectGetValueByTime(0, trendlineName, iTime(_Symbol, _Period, i), 0);
+
+        double close_price = iClose(_Symbol, _Period, i);
+        double open_price = iOpen(_Symbol, _Period, i);
+
+        // If the close price is above the trendline, check for a green candle
+        if(close_price > trendlinePrice)
+        {
+            // Look backwards through the previous 10 bars to find a green candle
+            for(int j = i; j >= i - 10 && j >= 0; j--)
+            {
+                double prev_open_price = iOpen(_Symbol, _Period, j);
+                double prev_close_price = iClose(_Symbol, _Period, j);
+
+                // Bullish candle: open < close (green candle)
+                if(prev_open_price < prev_close_price)
+                {
+                    return j;  // Return the index of the green candle found
+                }
+            }
+
+            break;  // Stop if we've checked the past 10 bars for green candles
+        }
+    }
+
+    return -1;  // No green candle found within the last 10 bars above the trendline
+}
+
+void DrawLine(string objname, double price, int count, int start_index) //creates or modifies existing object if necessary
+  {
+   if((price < 0) && ObjectFind(0, objname) >= 0)
+     {
+      ObjectDelete(0, objname);
+     }
+   else if(ObjectFind(0, objname) >= 0 && ObjectGetInteger(0, objname, OBJPROP_TYPE) == OBJ_TREND)
+     {
+      datetime cTime[];
+      ArraySetAsSeries(cTime, true);
+      CopyTime(Symbol(), Period(), 0, start_index+count, cTime);
+      ObjectSetInteger(0, objname, OBJPROP_TIME, cTime[start_index]);
+      ObjectSetDouble(0, objname, OBJPROP_PRICE, price);
+      ObjectSetInteger(0, objname, OBJPROP_TIME, 1, cTime[start_index+count-1]);
+      ObjectSetDouble(0, objname, OBJPROP_PRICE, 1, price);
+     }
+   else
+     {
+      datetime cTime[];
+      ArraySetAsSeries(cTime, true);
+      CopyTime(Symbol(), Period(), 0, start_index+count, cTime);
+      ObjectCreate(0, objname, OBJ_TREND, 0, cTime[start_index], price, cTime[start_index+count-1], price);
+      ObjectSetInteger(0, objname, OBJPROP_RAY_LEFT, 0);
+      ObjectSetInteger(0, objname, OBJPROP_RAY_RIGHT, 0);
+      ObjectSetInteger(0, objname, OBJPROP_COLOR, C'0x00,0x00,0xFF');
+      ObjectSetInteger(0, objname, OBJPROP_STYLE, STYLE_SOLID);
+      ObjectSetInteger(0, objname, OBJPROP_WIDTH, 2);
+     }
+}*/
