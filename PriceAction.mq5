@@ -76,11 +76,18 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
                 
     for(int i = limit-1; i >= 0; i--){
 
-      if (i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
+      if(i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
 
-      
+      int trendObjects = ObjectsTotal(0, 0, OBJ_TREND);
+      for(int j = 0; j < trendObjects; j++){
 
-                  
+        string objectName = ObjectName(0, j, 0, OBJ_TREND);
+        if(StringFind(objectName, "l" + IntegerToString(j)) != -1){
+
+          Print("Trendline detected!");
+        
+        }
+      }           
     }
                 
   return(rates_total);
