@@ -31,6 +31,8 @@ double High[];
 #define PLOT_MAXIMUM_BARS_BACK 250
 #define OMIT_OLDEST_BARS 50
 
+datetime Time[];
+
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
@@ -82,9 +84,15 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
       for(int j = 0; j < trendObjects; j++){
 
         string objectName = ObjectName(0, j, 0, OBJ_TREND);
-        if(StringFind(objectName, "l" + IntegerToString(j)) != -1){
+        if(StringFind(objectName, "l") != -1){
 
-          Print("Trendline detected!");
+          Print("Trendline: ",objectName," detected!");
+        
+        }
+        
+        if(StringFind(objectName, "u") != -1){
+
+          Print("Trendline: ",objectName," detected!");
         
         }
       }           
