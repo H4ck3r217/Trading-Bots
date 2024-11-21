@@ -231,7 +231,7 @@ double TrendlinePriceLower(int shift) {
 
     for(int i = 0; i < obj_total; i++) {
         string name = ObjectName(0, i);  // Get the object name
-        name = StringTrimLeft(StringTrimRight(name));  // Trim any extra spaces
+        name = StringTrimRight(name);  // Trim any extra spaces
         
         // Check if the object is a trendline
         if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND) {
