@@ -8,6 +8,7 @@
 #property link      "https://github.com/H4ck3r217/Trading-Bots"
 #property version   "1.0"
 #property description "OnChart-drawn support, resistance and trendlines"
+#property strict 
 
 #property indicator_chart_window
 #property indicator_buffers 2
@@ -23,9 +24,30 @@
 #property indicator_color2 0x0000FF
 #property indicator_label2 "Sell"
 
+long current_AccountNo() { return AccountInfoInteger(ACCOUNT_LOGIN);}
+
+// Edit here for user trading account 
+long UserAccounts[] = {24202600,24202602,24202603,24202604};
+
+bool CheckAccountNo(long acc_Inp, long &accounts[], int accountCount){ 
+
+  bool isValid = false; 
+  for(int i = 0; i < accountCount; i++){
+    if(acc_Inp == accounts[i]){
+      isValid = true; 
+      break; 
+    }
+  }
+
+  if(!isValid) {
+    Print("Invalid Account Number, Revoking the Indicator Now!!!");
+    return(false);
+  }
+  return(true);
+}
+
 double Buffer1[];
 double Buffer2[];
-
 double Low[];
 double High[];
 
@@ -40,6 +62,11 @@ datetime Time[];
 
 int OnInit(){
 
+  string PriceAction = "PriceAction";
+  if(!CheckAccountNo(current_AccountNo(), UserAccounts, ArraySize(UserAccounts))) { 
+    ChartIndicatorDelete(0,0,PriceAction); 
+    return INIT_FAILED;
+  }
 
   SetIndexBuffer(0, Buffer1);
   PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
