@@ -88,8 +88,7 @@ double GetTrendlinePrice(datetime time, datetime start_time, double start_price,
   return price;
 }
 
-
-// trendline function
+// trendline functions
 double TrendlinePriceLower(int shift) {
     int obj_total = ObjectsTotal(0);  // Get total number of objects on the chart
     double minprice = DBL_MAX;  // Initialize minprice to a very large value
@@ -133,6 +132,45 @@ double TrendlinePriceLower(int shift) {
     return (minprice == DBL_MAX) ? -1 : minprice;  // Return the lowest trendline price found, or -1 if none
 }
 
+double TrendlinePriceUpper(int shift){
+
+    int obj_total = ObjectsTotal(0);  // Get total number of objects on the chart
+    double maxprice = -DBL_MAX;  // Initialize maxprice to a very small value
+    datetime barTime = iTime(NULL, 0, shift);  // Get the time of the bar at 'shift'
+    
+    for(int i = 0; i < obj_total; i++){
+    
+        string name = ObjectName(0, i);  // Get the object name
+    
+        // Check if the object is a trendline and contains "u" (for upward trendline)
+        if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND && StringFind(name, "u") > -1){
+    
+            // Get the trendline price at the time of the bar
+            double price = ObjectGetValueByTime(0, name, barTime, 0);
+            Print("Trendline: ", name, " | Time: ", TimeToString(barTime, TIME_DATE | TIME_MINUTES), " | Trendline Price: ", price);
+    
+            // Update maxprice if this trendline price is higher than the previous one
+            if(price > maxprice && price > 0){
+                maxprice = price;
+            }
+        }
+
+        // Check if the object is a trendline and contains "u1" (for upward trendline)
+        if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND && StringFind(name, "u1") > -1){
+    
+            // Get the trendline price at the time of the bar
+            double price = ObjectGetValueByTime(0, name, barTime, 0);
+            //Print("Trendline: ", name, " | Time: ", TimeToString(barTime, TIME_DATE | TIME_MINUTES), " | Trendline Price: ", price);
+    
+            // Update maxprice if this trendline price is higher than the previous one
+            if(price > maxprice && price > 0){
+                maxprice = price;
+            }
+        }
+    }
+    
+    return (maxprice == -DBL_MAX) ? -1 : maxprice;  // Return the highest trendline price found, or -1 if none
+}
 
 bool IsPriceRetestingOB(double high_price, double low_price, int &retest){
 
@@ -163,4 +201,98 @@ bool IsPriceWithinOB(double high_price, double low_price){
     return false;  // Price is outside the OB
 }
 
+
+int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice) {
+    
+  // Get current bar count
+  int totalBars = Bars(_Symbol, _Period);
+
+  // Check if the trendline object exists
+  if(ObjectFind(0, trendlineName) < 0) {
+    Print("Trendline not found: ", trendlineName);
+    return -1;
+  }
+
+  // Start looking from the most recent bar and move backwards
+  for(int i = 0; i <= 10; i++) {
+
+    // Get the price of the trendline at this bar's time
+    double trendlinePrice = ObjectGetValueByTime(0, trendlineName, iTime(_Symbol, _Period, i), 0);
+    
+    // Ensure trendline price is valid
+    if(trendlinePrice == 0) continue;
+
+    double close_price = iClose(_Symbol, _Period, i);
+
+    // Check if the close price is above the trendline
+    if(close_price > trendlinePrice) {
+
+      // Check the previous 50 bars for a green candle
+      for(int j = i; j <= i + 10 && j < totalBars; j++){
+
+        double prev_open_price = iOpen(_Symbol, _Period, j);
+        double prev_close_price = iClose(_Symbol, _Period, j);
+        double ob_high = iHigh(_Symbol, _Period, j);
+        double ob_low = iLow(_Symbol, _Period, j);
+
+        // Check for a green (bullish) candle
+        if(prev_open_price < prev_close_price) {
+          Print("Found green candle at index: ", j, " with OB High: ", ob_high, " OB Low: ", ob_low);
+          return j;  // Return the index of the green candle
+        }
+      }
+    }
+  }
+
+  // Return -1 if no green candle was found above the trendline
+  Print("No green candle found above the trendline within the last 10 bars.");
+  return -1;
+}
+
+int FindPreviousRedCandleBelowTrendline(string trendlineName, double currentPrice) {
+    
+  // Get current bar count
+  int totalBars = Bars(_Symbol, _Period);
+
+  // Check if the trendline object exists
+  if(ObjectFind(0, trendlineName) < 0) {
+    Print("Trendline not found: ", trendlineName);
+    return -1;
+  }
+
+  // Start looking from the most recent bar and move backwards
+  for(int i = 0; i <= 10; i++) {
+
+    // Get the price of the trendline at this bar's time
+    double trendlinePrice = ObjectGetValueByTime(0, trendlineName, iTime(_Symbol, _Period, i), 0);
+    
+    // Ensure trendline price is valid
+    if(trendlinePrice == 0) continue;
+
+    double close_price = iClose(_Symbol, _Period, i);
+
+    // Check if the close price is below the trendline
+    if(close_price < trendlinePrice) {
+
+      // Check the previous 10 bars for a red candle
+      for(int j = i; j <= i + 10 && j < totalBars; j++){
+
+        double prev_open_price = iOpen(_Symbol, _Period, j);
+        double prev_close_price = iClose(_Symbol, _Period, j);
+        double ob_high = iHigh(_Symbol, _Period, j);
+        double ob_low = iLow(_Symbol, _Period, j);
+
+        // Check for a red (bearish) candle
+        if(prev_open_price > prev_close_price) {
+          Print("Found red candle at index: ", j, " with OB High: ", ob_high, " OB Low: ", ob_low);
+          return j;  // Return the index of the red candle
+        }
+      }
+    }
+  }
+
+  // Return -1 if no red candle was found below the trendline
+  Print("No red candle found below the trendline within the last 10 bars.");
+  return -1;
+}
 
