@@ -78,7 +78,7 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
 
       if (i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
 
-
+      
 
                   
     }
@@ -323,7 +323,7 @@ int FindPreviousRedCandleBelowTrendline(string trendlineName, double currentPric
 }
 
 void DrawOrderBlock(int candle_index, color block_color){
-  
+
     // Get the high and low of the identified candlestick
     double high_price = iHigh(_Symbol, _Period, candle_index);
     double low_price = iLow(_Symbol, _Period, candle_index);
