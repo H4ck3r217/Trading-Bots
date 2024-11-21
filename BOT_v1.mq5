@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2024, Automated Trading Ltd."
 #property link      "https://github.com/H4ck3r217/Trading-Bots"
-#property version   "1.0.0"
+#property version   "1.0"
 
 
 #property indicator_chart_window
