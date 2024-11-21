@@ -48,85 +48,6 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
 //| Custom functions                                                 |
 //+------------------------------------------------------------------+
 
-// Check if price has crossed the trendline
-if(PriceCrossedTrendline(LowertrendlinePrice)){
-  
-  // Check if it's a downtrend
-  if(iClose(_Symbol, _Period, 0) < LowertrendlinePrice){
-
-    for(int i = 0; i < totalObjects; i++) {
-
-      string LowerTrendline = ObjectName(0, i);  // Get the object name
-
-      if(ObjectFind(0, LowerTrendline) != -1 && ObjectGetInteger(0, LowerTrendline, OBJPROP_TYPE) == OBJ_TREND){
-
-        if(StringFind(LowerTrendline, "l") > -1){ 
-
-          Print("Trendline Name: ", LowerTrendline);
-
-          // Search for the previous green candlestick (resistance order block)
-          int green_candle_index = FindPreviousGreenCandleAboveTrendline(LowerTrendline, currentPrice);
-
-          if(green_candle_index != -1){
-            
-            // Draw the order block (resistance zone)
-            DrawOrderBlock(green_candle_index, clrLime);
-
-            // Get high and low of the OB
-            double ob_high = iHigh(_Symbol, _Period, green_candle_index);
-            double ob_low = iLow(_Symbol, _Period, green_candle_index);
-
-            // Price inside the OB
-            if(IsPriceWithinOB(ob_high, ob_low)){
-              
-              int retest = 0;
-              // Wait for price to retest the OB
-              if(IsPriceRetestingOB(ob_high, ob_low, retest)){
-                
-                if(Close[i+1] > ob_low && Close[i] < ob_low && retest >= 1){
-
-                  // Retest confirmed, plot sell arrow
-                  if(i == 1 && Time[1] != time_alert) myAlert("indicator", "OrderBlock Retest Sell"); // Alert on next bar open
-                  time_alert = Time[1];
-                  
-                  // Check if the last arrow was drawn more than 10 bars ago
-                  bool arrowExists = false;
-                  for(int k = 0; k < maxBars-oldBars; k++){
-
-                    string arrowName = ObjectName(0, k);
-                    if(StringFind(arrowName, "Retest_Sell#") > -1){
-
-                      datetime arrowTime = (datetime)ObjectGetInteger(0, arrowName, OBJPROP_TIME);
-                      if(Time[i] - arrowTime < PeriodSeconds() * arrowSellFilter){
-
-                        arrowExists = true;
-                        break;
-                      }
-                    }
-                  }
-                  
-                  if(!arrowExists){
-
-                    color SellColor = clrBlue;
-                    string obj_name="Retest_Sell#"+IntegerToString(Time[i]);
-                    ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i+1]);
-                    ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
-                    ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, 3); // Adjust width as needed
-                    ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
-                    ObjectSetInteger(0, obj_name, OBJPROP_ANCHOR, ANCHOR_TOP);
-                    ObjectSetInteger(0, obj_name, OBJPROP_HIDDEN, false);
-                    ObjectSetInteger(0, obj_name, OBJPROP_BACK, true);
-                    arrow_count++;   
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }  
-  }
-}
 
 bool IsPriceRetestingOB(double high_price, double low_price, int &retest){
 
@@ -167,59 +88,6 @@ double GetTrendlinePrice(datetime time, datetime start_time, double start_price,
   return price;
 }
 
-// main function trendline
-for(int i = limit - 1; i >= 0; i--) {
-    double range = High[i] - Low[i];
-    double dynamic_arrow = range * ArrowDist;
-
-    if (i >= MathMin(maxBars-1, rates_total-1-oldBars)) continue; // Omit old rates
-
-    if (getBid() > TrendlinePriceLower(i)) {
-        Print("Trendline name > ", "l", " : ", TrendlinePriceLower(i));
-    }
-
-    // Check for crossing above the trendline
-    if (Close[1 + i] <= TrendlinePriceUpper(1 + i) && Close[i] > TrendlinePriceUpper(i)) {
-        Buffer1[i] = Low[i];  // Set indicator value at Candlestick Low
-        
-        if (i == 0 && Time[0] != time_alert) { 
-            myAlert("indicator", "Buy"); 
-            time_alert = Time[0]; 
-        }  // Instant alert, only once per bar
-
-        bool arrowExists = false;
-        
-        for (int k = 0; k < maxBars - oldBars; k++) {
-            string arrowName = ObjectName(0, k);
-            if (StringFind(arrowName, "StochBuy#") > -1) {
-                datetime arrowTime = (datetime)ObjectGetInteger(0, arrowName, OBJPROP_TIME);
-                
-                if (Time[i] - arrowTime < PeriodSeconds() * arrowSellFilter) {
-                    arrowExists = true;
-                    break;
-                }
-            }
-        }
-
-        if (!arrowExists) {
-            color BuyColor = clrBlue;
-            string obj_name = "StochBuy#" + IntegerToString(Time[i]);
-
-            if (!IsArrowSellExists(obj_name, Time[i])) {
-                ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i] + dynamic_arrow);
-                ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
-                ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, 3);  // Adjust width as needed
-                ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
-                ObjectSetInteger(0, obj_name, OBJPROP_ANCHOR, ANCHOR_TOP);
-                ObjectSetInteger(0, obj_name, OBJPROP_HIDDEN, false);
-                ObjectSetInteger(0, obj_name, OBJPROP_BACK, true);
-                arrow_count++;
-            }
-        }
-    } else {
-        Buffer1[i] = EMPTY_VALUE;
-    }
-}
 
 // trendline function
 double TrendlinePriceLower(int shift) {
@@ -264,3 +132,35 @@ double TrendlinePriceLower(int shift) {
 
     return (minprice == DBL_MAX) ? -1 : minprice;  // Return the lowest trendline price found, or -1 if none
 }
+
+
+bool IsPriceRetestingOB(double high_price, double low_price, int &retest){
+
+    double current_price = iClose(_Symbol, _Period, 0); // Current price
+    double price = iHigh(_Symbol, _Period, 0);  // High price of the current bar
+    retest = 0;
+
+    // Check if price is below the OB low and high is above the OB low (retest condition)
+    if(current_price < low_price && price > low_price){
+        retest++;
+        Print("Price retesting OB, retest count: ", retest);
+        return true;  // Price is retesting the OB
+    }
+
+    return false;  // No retest detected
+}
+
+bool IsPriceWithinOB(double high_price, double low_price){
+
+    double current_price = iClose(_Symbol, _Period, 0); // Current price
+
+    // Check if price is within the OB range
+    if(current_price >= low_price && current_price <= high_price){
+        Print("Price within OB");
+        return true;  // Price is within the OB
+    }
+
+    return false;  // Price is outside the OB
+}
+
+
