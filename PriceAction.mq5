@@ -58,45 +58,92 @@ int OnInit(){
 
 int OnCalculate(const int rates_total,const int prev_calculated,const datetime &time[],const double &open[],const double &high[],const double &low[],const double &close[],const long &tick_volume[],const long &volume[],const int &spread[]){
                 
-    int limit = rates_total - prev_calculated;
-    //--- counting from 0 to rates_total
-    ArraySetAsSeries(Buffer1, true);
-    ArraySetAsSeries(Buffer2, true);
-    //--- initial zero
-    if(prev_calculated < 1)
-     {
-      ArrayInitialize(Buffer1, EMPTY_VALUE);
-      ArrayInitialize(Buffer2, EMPTY_VALUE);
-     }
-    else
-      limit++;            
-                
-    if(CopyLow(Symbol(), PERIOD_CURRENT, 0, rates_total, Low) <= 0) return(rates_total);
-    ArraySetAsSeries(Low, true);
-    if(CopyHigh(Symbol(), PERIOD_CURRENT, 0, rates_total, High) <= 0) return(rates_total);
-    ArraySetAsSeries(High, true);
-                
-    for(int i = limit-1; i >= 0; i--){
+  int limit = rates_total - prev_calculated;
+  //--- counting from 0 to rates_total
+  ArraySetAsSeries(Buffer1, true);
+  ArraySetAsSeries(Buffer2, true);
+  //--- initial zero
+  if(prev_calculated < 1){
 
-      if(i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
+    ArrayInitialize(Buffer1, EMPTY_VALUE);
+    ArrayInitialize(Buffer2, EMPTY_VALUE);
+  }
+  else
+    limit++;            
+              
+  if(CopyLow(Symbol(), PERIOD_CURRENT, 0, rates_total, Low) <= 0) return(rates_total);
+  ArraySetAsSeries(Low, true);
+  if(CopyHigh(Symbol(), PERIOD_CURRENT, 0, rates_total, High) <= 0) return(rates_total);
+  ArraySetAsSeries(High, true);
+              
+  for(int i = limit-1; i >= 0; i--){
 
-      int trendObjects = ObjectsTotal(0, 0, OBJ_TREND);
-      for(int j = 0; j < trendObjects; j++){
+    if(i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
 
-        string objectName = ObjectName(0, j, 0, OBJ_TREND);
-        if(StringFind(objectName, "l") != -1){
+    // Get the total number of objects on the chart
+    int totalObjects = ObjectsTotal(0, -1, -1);
+    double currentPrice = SymbolInfoDouble(Symbol(),SYMBOL_BID);
 
-          Print("Trendline: ",objectName," detected!");
-        
+    for(int i = 0; i < totalObjects; i++){
+      // Get the object name
+      string LowerTrendline = ObjectName(0, i);  
+      
+      // Ensure the object exists and is a trendline
+      if(ObjectFind(0, LowerTrendline) != -1 && ObjectGetInteger(0, LowerTrendline, OBJPROP_TYPE) == OBJ_TREND){
+          
+        // Check if the trendline name contains 'l' (can be lowercase or uppercase)
+        if(StringFind(LowerTrendline, "l") > -1 || StringFind(LowerTrendline, "L") > -1){
+
+          Print("Found trendline: ", LowerTrendline);  // Debugging output
+
+          // Search for the previous green candlestick (resistance order block)
+          int green_candle_index = FindPreviousGreenCandleAboveTrendline(LowerTrendline, currentPrice);
+
+          // Debugging: check if green candle index is valid
+          Print("Green candle index: ", green_candle_index);
+
+          if(green_candle_index != -1){
+
+            // Draw the order block (resistance zone)
+            DrawOrderBlock(green_candle_index, clrLime);
+            Print("Drawing order block for index: ", green_candle_index);
+
+            // Get high and low of the OB
+            double ob_high = iHigh(_Symbol, _Period, green_candle_index);
+            double ob_low = iLow(_Symbol, _Period, green_candle_index);
+
+            // Debugging: check if high and low are correct
+            Print("OB High: ", ob_high, " OB Low: ", ob_low);
+
+            // Wait for price to retest the OB
+            /*if(IsPriceRetestingOB(ob_high, ob_low)) {
+
+              // Retest confirmed, plot sell arrow
+              DrawArrowSell("LowerTrendSell", i, dynamic_arrow, clrBlack, arrowSellFilter);
+            }*/
+          }
         }
-        
-        if(StringFind(objectName, "u") != -1){
-
-          Print("Trendline: ",objectName," detected!");
-        
-        }
-      }           
+      }
     }
+
+
+    /*int trendObjects = ObjectsTotal(0, 0, OBJ_TREND);
+    for(int j = 0; j < trendObjects; j++){
+
+      string objectName = ObjectName(0, j, 0, OBJ_TREND);
+      if(StringFind(objectName, "l") != -1){
+
+        Print("Trendline: ",objectName," detected!");
+      
+      }
+      
+      if(StringFind(objectName, "u") != -1){
+
+        Print("Trendline: ",objectName," detected!");
+      
+      }
+    }*/           
+  }
                 
   return(rates_total);
 }
@@ -339,25 +386,25 @@ int FindPreviousRedCandleBelowTrendline(string trendlineName, double currentPric
 
 void DrawOrderBlock(int candle_index, color block_color){
 
-    // Get the high and low of the identified candlestick
-    double high_price = iHigh(_Symbol, _Period, candle_index);
-    double low_price = iLow(_Symbol, _Period, candle_index);
+  // Get the high and low of the identified candlestick
+  double high_price = iHigh(_Symbol, _Period, candle_index);
+  double low_price = iLow(_Symbol, _Period, candle_index);
 
-    // Create a unique object name based on the timestamp
-    string obj_name = "OrderBlock_" + IntegerToString(TimeCurrent());
+  // Create a unique object name based on the timestamp
+  string obj_name = "OrderBlock_" + IntegerToString(TimeCurrent());
 
-    // Create a rectangle representing the order block
-    if(!ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, Time[0], low_price))
-    {
-        Print("Error creating order block: ", GetLastError());
-        return;
-    }
+  // Create a rectangle representing the order block
+  if(!ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, Time[0], low_price)){
 
-    // Set the properties of the rectangle (order block)
-    ObjectSetInteger(0, obj_name, OBJPROP_COLOR, block_color);    // Set color
-    ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, 2);              // Border width
-    ObjectSetInteger(0, obj_name, OBJPROP_STYLE, STYLE_SOLID);    // Line style
-    ObjectSetInteger(0, obj_name, OBJPROP_RAY_RIGHT, true);       // Extend the rectangle to the right
+    Print("Error creating order block: ", GetLastError());
+    return;
+  }
+
+  // Set the properties of the rectangle (order block)
+  ObjectSetInteger(0, obj_name, OBJPROP_COLOR, block_color);    // Set color
+  ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, 2);              // Border width
+  ObjectSetInteger(0, obj_name, OBJPROP_STYLE, STYLE_SOLID);    // Line style
+  ObjectSetInteger(0, obj_name, OBJPROP_RAY_RIGHT, true);       // Extend the rectangle to the right
 }
 
 
