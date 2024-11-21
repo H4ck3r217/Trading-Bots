@@ -77,6 +77,9 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
     for(int i = limit-1; i >= 0; i--){
 
       if (i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
+
+
+
                   
     }
                 
@@ -318,6 +321,30 @@ int FindPreviousRedCandleBelowTrendline(string trendlineName, double currentPric
   Print("No red candle found below the trendline within the last 10 bars.");
   return -1;
 }
+
+void DrawOrderBlock(int candle_index, color block_color){
+  
+    // Get the high and low of the identified candlestick
+    double high_price = iHigh(_Symbol, _Period, candle_index);
+    double low_price = iLow(_Symbol, _Period, candle_index);
+
+    // Create a unique object name based on the timestamp
+    string obj_name = "OrderBlock_" + IntegerToString(TimeCurrent());
+
+    // Create a rectangle representing the order block
+    if(!ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, Time[0], low_price))
+    {
+        Print("Error creating order block: ", GetLastError());
+        return;
+    }
+
+    // Set the properties of the rectangle (order block)
+    ObjectSetInteger(0, obj_name, OBJPROP_COLOR, block_color);    // Set color
+    ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, 2);              // Border width
+    ObjectSetInteger(0, obj_name, OBJPROP_STYLE, STYLE_SOLID);    // Line style
+    ObjectSetInteger(0, obj_name, OBJPROP_RAY_RIGHT, true);       // Extend the rectangle to the right
+}
+
 
 /*//Advanced
 int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
