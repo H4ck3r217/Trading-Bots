@@ -24,8 +24,13 @@
 #property indicator_color2 0x0000FF
 #property indicator_label2 "Sell"
 
+#define LICENSED_TRADE_SYMBOLS {"AUDUSD","USDJPY","EURUSD","Boom 500 Index"};
+
+// Account Protection
+
 long current_AccountNo() { return AccountInfoInteger(ACCOUNT_LOGIN);}
 
+string Current_Chart_Symbol(){ return Symbol();}
 // Edit here for user trading account 
 long UserAccounts[] = {24202600,24202602,24202603,24202604};
 
@@ -41,6 +46,26 @@ bool CheckAccountNo(long acc_Inp, long &accounts[], int accountCount){
 
   if(!isValid) {
     Print("Invalid Account Number, Revoking the Indicator Now!!!");
+    return(false);
+  }
+  return(true);
+}
+
+bool CheckTradeSymbols(){
+
+  bool isValid = false;
+  string validSymbols[] = LICENSED_TRADE_SYMBOLS;
+  for(int i=ArraySize(validSymbols)-1; i>=0; i--){
+
+    if(Current_Chart_Symbol()==validSymbols[i]){
+
+      isValid = true;
+      break;
+    }
+  }
+  if(!isValid){
+
+    Print("Negative: Trading is Restricted on ",Current_Chart_Symbol());
     return(false);
   }
   return(true);
@@ -63,8 +88,15 @@ datetime Time[];
 int OnInit(){
 
   string PriceAction = "PriceAction";
-  if(!CheckAccountNo(current_AccountNo(), UserAccounts, ArraySize(UserAccounts))) { 
+  if(!CheckAccountNo(current_AccountNo(), UserAccounts, ArraySize(UserAccounts))){
     ChartIndicatorDelete(0,0,PriceAction); 
+    Print("Removing Indicator");
+    return INIT_FAILED;
+  }
+
+  if(!CheckTradeSymbols()){  
+    ChartIndicatorDelete(0,0,PriceAction);
+    Print("Removing Indicator");
     return INIT_FAILED;
   }
 
@@ -111,6 +143,7 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
     int totalObjects = ObjectsTotal(0, -1, -1);
     double currentPrice = SymbolInfoDouble(Symbol(),SYMBOL_BID);
 
+    // Lower Trendline
     for(int i = 0; i < totalObjects; i++){
       // Get the object name
       string LowerTrendline = ObjectName(0, i);  
