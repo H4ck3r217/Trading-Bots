@@ -40,14 +40,14 @@ datetime Time[];
 int OnInit(){
 
 
-   SetIndexBuffer(0, Buffer1);
-   PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetInteger(0, PLOT_DRAW_BEGIN, MathMax(Bars(Symbol(), PERIOD_CURRENT)-PLOT_MAXIMUM_BARS_BACK+1, OMIT_OLDEST_BARS+1));
-   PlotIndexSetInteger(0, PLOT_ARROW, 241);
-   SetIndexBuffer(1, Buffer2);
-   PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetInteger(1, PLOT_DRAW_BEGIN, MathMax(Bars(Symbol(), PERIOD_CURRENT)-PLOT_MAXIMUM_BARS_BACK+1, OMIT_OLDEST_BARS+1));
-   PlotIndexSetInteger(1, PLOT_ARROW, 242);
+  SetIndexBuffer(0, Buffer1);
+  PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+  PlotIndexSetInteger(0, PLOT_DRAW_BEGIN, MathMax(Bars(Symbol(), PERIOD_CURRENT)-PLOT_MAXIMUM_BARS_BACK+1, OMIT_OLDEST_BARS+1));
+  PlotIndexSetInteger(0, PLOT_ARROW, 241);
+  SetIndexBuffer(1, Buffer2);
+  PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+  PlotIndexSetInteger(1, PLOT_DRAW_BEGIN, MathMax(Bars(Symbol(), PERIOD_CURRENT)-PLOT_MAXIMUM_BARS_BACK+1, OMIT_OLDEST_BARS+1));
+  PlotIndexSetInteger(1, PLOT_ARROW, 242);
 
   return(INIT_SUCCEEDED);
 }
@@ -243,7 +243,7 @@ double TrendlinePriceUpper(int shift){
     return (maxprice == -DBL_MAX) ? -1 : maxprice;  // Return the highest trendline price found, or -1 if none
 }
 
-int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice) {
+int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
     
   // Get current bar count
   int totalBars = Bars(_Symbol, _Period);
