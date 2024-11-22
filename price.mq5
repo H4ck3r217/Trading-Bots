@@ -109,25 +109,15 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
           datetime currentBarTime = iTime(NULL, 0, 0);  // Current bar's time
           double trendlinePrice = ObjectGetValueByTime(0, name, currentBarTime, 0);  // Trendline price
           
-          if (trendlinePrice > 0) {  // Ensure a valid price is retrieved
+          if(trendlinePrice > 0){  // Ensure a valid price is retrieved
             double currentPrice = Close[0];  // Use the current bid price (or Close[0])
 
             // Check for a downward cross (price breaks below trendline)
-            if (currentPrice < trendlinePrice) {
+            if(currentPrice < trendlinePrice){
+
               Print("Price crossed below trendline: ", name, " | Trendline Price: ", trendlinePrice, " | Current Price: ", currentPrice);
+              DrawArrowSell("Trend", i, arrowPrice, clrBlack, 10);
               
-              // Draw sell arrow
-              string arrowName = "SellArrow_" + TimeToString(currentBarTime, TIME_MINUTES);  // Unique arrow name
-              if(!ObjectCreate(0, arrowName, OBJ_ARROW, 0, currentBarTime, currentPrice)){
-                Print("Failed to create sell arrow: ", arrowName);
-              } 
-              
-              else{
-                ObjectSetInteger(0, arrowName, OBJPROP_ARROWCODE, 233);  // Arrow type (233 = sell arrow)
-                ObjectSetInteger(0, arrowName, OBJPROP_COLOR, clrRed);  // Red color for sell
-                ObjectSetInteger(0, arrowName, OBJPROP_WIDTH, 2);      // Arrow size
-                Print("Sell arrow created: ", arrowName, " at price: ", currentPrice);
-              }
             }
           }
         }
@@ -362,11 +352,6 @@ void DrawOrderBlock(int candle_index, color block_color){
 
 
 
-
-
-
-
-
 //+------------------------------------------------------------------+
 //| Wayback functions                                                |
 //+------------------------------------------------------------------+
@@ -412,8 +397,6 @@ bool IsArrowBuyExists(string arrowName, datetime time){
   }
   return false;  // No matching buy arrow found
 }
-
-
 
 void DrawArrowSell(string arrowPrefix, int i, double arrowPrice, color arrowColor, int arrowFilter){
 
