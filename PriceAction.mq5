@@ -24,16 +24,23 @@
 #property indicator_color2 0x0000FF
 #property indicator_label2 "Sell"
 
+#define PLOT_MAXIMUM_BARS_BACK 250
+#define OMIT_OLDEST_BARS 50
 #define LICENSED_TRADE_SYMBOLS {"AUDUSD","USDJPY","EURUSD","Boom 500 Index"};
-
-// Account Protection
+#define LICENSED_TRADE_MODES {ACCOUNT_TRADE_MODE_CONTEST,ACCOUNT_TRADE_MODE_DEMO};
+#define LICENSED_EXPIRY_DATE_START D'2024.11.21'
+#define LICENSED_EXPIRY_DAYS 2
 
 long current_AccountNo() { return AccountInfoInteger(ACCOUNT_LOGIN);}
-
+long Current_Account_Mode(){ return AccountInfoInteger(ACCOUNT_TRADE_MODE);}
 string Current_Chart_Symbol(){ return Symbol();}
-// Edit here for user trading account 
 long UserAccounts[] = {24202600,24202602,24202603,24202604};
 
+//+------------------------------------------------------------------+
+//| ACCOUNT COPY PROTECTION                                          |
+//+------------------------------------------------------------------+
+
+// Edit here for user trading account 
 bool CheckAccountNo(long acc_Inp, long &accounts[], int accountCount){ 
 
   bool isValid = false; 
@@ -51,10 +58,12 @@ bool CheckAccountNo(long acc_Inp, long &accounts[], int accountCount){
   return(true);
 }
 
+// Symbols to trade for demo and trial version 
 bool CheckTradeSymbols(){
 
   bool isValid = false;
   string validSymbols[] = LICENSED_TRADE_SYMBOLS;
+
   for(int i=ArraySize(validSymbols)-1; i>=0; i--){
 
     if(Current_Chart_Symbol()==validSymbols[i]){
@@ -65,20 +74,57 @@ bool CheckTradeSymbols(){
   }
   if(!isValid){
 
-    Print("Negative: Trading is Restricted on ",Current_Chart_Symbol());
+    Print("Negative: Trading is Restricted on Symbol ",Current_Chart_Symbol());
     return(false);
   }
   return(true);
+}
+
+// Account Type Restriction for demo and trial version
+bool CheckTradeModes(){
+
+  bool isValid = false;
+  int validModes[] = LICENSED_TRADE_MODES;
+  for(int i=ArraySize(validModes)-1; i>=0; i--){
+
+    if(Current_Account_Mode()==validModes[i]){
+
+      isValid = true;
+      break;
+    }
+  }
+  if(!isValid){
+
+    Print("Negative: Trading is Restricted on this Account Type ");
+    return(false);
+  }
+  return(true);
+}
+
+// Function to check the expiry date
+bool CheckExpiryDate(){
+
+  datetime expiryDate = LICENSED_EXPIRY_DATE_START + (LICENSED_EXPIRY_DAYS * 24 * 60 * 60);
+  int secondsRemaining = int(expiryDate - TimeCurrent());
+  int days = secondsRemaining / (24 * 3600);
+  int hours = (secondsRemaining % (24 * 3600)) / 3600;
+  int mins = (secondsRemaining % 3600) / 60;
+
+  if(TimeCurrent() > expiryDate){
+
+    Print("Trial version expired on: ", TimeToString(expiryDate, TIME_DATE | TIME_MINUTES));
+    return false;
+  }
+
+  Print("Indicator expires on: ", TimeToString(expiryDate, TIME_DATE | TIME_MINUTES));
+  Print("Remaining: ", days, " Days ", hours, " Hours ", mins, " Minutes");
+  return true;
 }
 
 double Buffer1[];
 double Buffer2[];
 double Low[];
 double High[];
-
-#define PLOT_MAXIMUM_BARS_BACK 250
-#define OMIT_OLDEST_BARS 50
-
 datetime Time[];
 
 //+------------------------------------------------------------------+
@@ -87,15 +133,26 @@ datetime Time[];
 
 int OnInit(){
 
-  string PriceAction = "PriceAction";
   if(!CheckAccountNo(current_AccountNo(), UserAccounts, ArraySize(UserAccounts))){
-    ChartIndicatorDelete(0,0,PriceAction); 
+    ChartIndicatorDelete(0,0,"PriceAction"); 
     Print("Removing Indicator");
     return INIT_FAILED;
   }
 
   if(!CheckTradeSymbols()){  
-    ChartIndicatorDelete(0,0,PriceAction);
+    ChartIndicatorDelete(0,0,"PriceAction");
+    Print("Removing Indicator");
+    return INIT_FAILED;
+  }
+
+  if(!CheckTradeModes()){  
+    ChartIndicatorDelete(0,0,"PriceAction");
+    Print("Removing Indicator");
+    return INIT_FAILED;
+  }
+
+  if(!CheckExpiryDate()){  
+    ChartIndicatorDelete(0,0,"PriceAction");
     Print("Removing Indicator");
     return INIT_FAILED;
   }
@@ -154,28 +211,28 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
         // Check if the trendline name contains 'l' (can be lowercase or uppercase)
         if(StringFind(LowerTrendline, "l") > -1 || StringFind(LowerTrendline, "L") > -1){
 
-          Print("Found trendline: ", LowerTrendline);  // Debugging output
+          //Print("Found trendline: ", LowerTrendline);  // Debugging output
 
           // Search for the previous green candlestick (resistance order block)
           int green_candle_index = FindPreviousGreenCandleAboveTrendline(LowerTrendline, currentPrice);
 
           // Debugging: check if green candle index is valid
-          Print("Green candle index: ", green_candle_index);
+          //Print("Green candle index: ", green_candle_index);
 
           if(green_candle_index != -1){
 
-            Print("should draw orderBlock here"); // Debugging output
+            //Print("should draw orderBlock here"); // Debugging output
             
             // Draw the order block (resistance zone)
             DrawOrderBlock(green_candle_index, clrBlack);
-            Print("Drawing order block for index: ", green_candle_index);
+            //Print("Drawing order block for index: ", green_candle_index);
 
             // Get high and low of the OB
             double ob_high = iHigh(_Symbol, _Period, green_candle_index);
             double ob_low = iLow(_Symbol, _Period, green_candle_index);
 
             // Debugging: check if high and low are correct
-            Print("OB High: ", ob_high, " OB Low: ", ob_low);
+            //Print("OB High: ", ob_high, " OB Low: ", ob_low);
 
             // Wait for price to retest the OB
             /*if(IsPriceRetestingOB(ob_high, ob_low)) {
@@ -187,7 +244,6 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
         }
       }
     }
-
 
     /*int trendObjects = ObjectsTotal(0, 0, OBJ_TREND);
     for(int j = 0; j < trendObjects; j++){
@@ -270,46 +326,46 @@ double GetTrendlinePrice(datetime time, datetime start_time, double start_price,
 
 // trendline functions
 double TrendlinePriceLower(int shift) {
-    int obj_total = ObjectsTotal(0);  // Get total number of objects on the chart
-    double minprice = DBL_MAX;  // Initialize minprice to a very large value
-    datetime barTime = iTime(NULL, 0, shift);  // Get the time of the bar at 'shift'
-    
-    double trendline_prices[];  // Array to store all trendline prices
+  int obj_total = ObjectsTotal(0);  // Get total number of objects on the chart
+  double minprice = DBL_MAX;  // Initialize minprice to a very large value
+  datetime barTime = iTime(NULL, 0, shift);  // Get the time of the bar at 'shift'
+  
+  double trendline_prices[];  // Array to store all trendline prices
 
-    for(int i = 0; i < obj_total; i++) {
-        string name = ObjectName(0, i);  // Get the object name
-        
-        
-        // Check if the object is a trendline
-        if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND) {
-            
-            // Use a single condition to detect both "l" and "l1"
-            if(StringFind(name, "l") > -1 || StringFind(name, "l1") > -1) {
-                
-                // Get the trendline price at the time of the bar
-                double price = ObjectGetValueByTime(0, name, barTime, 0);
-                
-                // Check if the price is valid
-                if(price > 0) {
-                    // Store the trendline price in the array
-                    ArrayResize(trendline_prices, ArraySize(trendline_prices) + 1);
-                    trendline_prices[ArraySize(trendline_prices) - 1] = price;
-                }
-            }
-        }
-    }
-    
-    // If any trendline prices were found, find the minimum
-    if(ArraySize(trendline_prices) > 0) {
-        minprice = trendline_prices[0];
-        for(int j = 1; j < ArraySize(trendline_prices); j++) {
-            if(trendline_prices[j] < minprice) {
-                minprice = trendline_prices[j];
-            }
-        }
-    }
+  for(int i = 0; i < obj_total; i++) {
+      string name = ObjectName(0, i);  // Get the object name
+      
+      
+      // Check if the object is a trendline
+      if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND) {
+          
+          // Use a single condition to detect both "l" and "l1"
+          if(StringFind(name, "l") > -1 || StringFind(name, "l1") > -1) {
+              
+              // Get the trendline price at the time of the bar
+              double price = ObjectGetValueByTime(0, name, barTime, 0);
+              
+              // Check if the price is valid
+              if(price > 0) {
+                  // Store the trendline price in the array
+                  ArrayResize(trendline_prices, ArraySize(trendline_prices) + 1);
+                  trendline_prices[ArraySize(trendline_prices) - 1] = price;
+              }
+          }
+      }
+  }
+  
+  // If any trendline prices were found, find the minimum
+  if(ArraySize(trendline_prices) > 0) {
+      minprice = trendline_prices[0];
+      for(int j = 1; j < ArraySize(trendline_prices); j++) {
+          if(trendline_prices[j] < minprice) {
+              minprice = trendline_prices[j];
+          }
+      }
+  }
 
-    return (minprice == DBL_MAX) ? -1 : minprice;  // Return the lowest trendline price found, or -1 if none
+  return (minprice == DBL_MAX) ? -1 : minprice;  // Return the lowest trendline price found, or -1 if none
 }
 
 double TrendlinePriceUpper(int shift){
@@ -351,7 +407,6 @@ double TrendlinePriceUpper(int shift){
     
     return (maxprice == -DBL_MAX) ? -1 : maxprice;  // Return the highest trendline price found, or -1 if none
 }
-
 
 int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
     
@@ -397,7 +452,7 @@ int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPr
   }
 
   // Return -1 if no green candle was found above the trendline
-  Print("No green candle found above the trendline within the last 10 bars.");
+  //Print("No green candle found above the trendline within the last 10 bars.");
   return -1;
 }
 
