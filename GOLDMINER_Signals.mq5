@@ -234,387 +234,376 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime& 
   ArraySetAsSeries(Close, true);
   if(CopyTime(Symbol(), Period(), 0, rates_total, Time) <= 0) return(rates_total);
   ArraySetAsSeries(Time, true);
-  ArraySetAsSeries(Close, true);
-  CopyClose(_Symbol, Period(), 0, limit, Close);
 
-  //--- main loop
-  for(int i = limit-1; i >= 0; i--){
+
+    //--- main loop
+    for(int i = limit-1; i >= 0; i--){
   
-    //omit some old rates to prevent "Array out of range" or slow calculation
-    
-    if (i >= MathMin(maxBars-1, rates_total-1-oldBars)) continue;    
-    
-    double range = High[i] - Low[i];
-    double dynamic_arrow_dist = range * ArrowDist;
-    resistance = "";
-    support = "";
-    double price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
-    int totalObjects = ObjectsTotal(0, 0, OBJ_RECTANGLE);
-    
-    // SUPPORT AND RESISTANCE ZONES SIGNALS
+        //omit some old rates to prevent "Array out of range" or slow calculation
+        
+        if (i >= MathMin(maxBars-1, rates_total-1-oldBars)) continue;    
+        
+        double range = High[i] - Low[i];
+        double dynamic_arrow_dist = range * ArrowDist;
+        resistance = "";
+        support = "";
+        double price = SymbolInfoDouble(_Symbol,SYMBOL_BID);
+        int totalObjects = ObjectsTotal(0, 0, OBJ_RECTANGLE);
+        
+        // SUPPORT AND RESISTANCE ZONES SIGNALS
+        for(int j=0; j<totalObjects; j++){
 
-    for(int j=0; j<totalObjects; j++){
+        if(isSupResActive){
 
-      if(isSupResActive){
+            string objectName = ObjectName(0, j, 0, OBJ_RECTANGLE);
 
-        string objectName = ObjectName(0, j, 0, OBJ_RECTANGLE);
+            // Sell Signals
+            if(StringFind(objectName, "SSSR#R")>-1){
 
-        // Sell Signals
-        if(StringFind(objectName, "SSSR#R")>-1){
+            resistance = objectName;
+            //Print("\nResistance: ", resistance);
 
-          resistance = objectName;
-          //Print("\nResistance: ", resistance);
+            double resistanceHigh = ObjectGetDouble(0, resistance, OBJPROP_PRICE,0);
+            double resistanceLow = ObjectGetDouble(0, resistance, OBJPROP_PRICE,1);
+            double range = (resistanceHigh-resistanceLow)/2;
+            double sellRange = resistanceLow-range;
+            double sellStop = resistanceHigh+range;
 
-          double resistanceHigh = ObjectGetDouble(0, resistance, OBJPROP_PRICE,0);
-          double resistanceLow = ObjectGetDouble(0, resistance, OBJPROP_PRICE,1);
-          double range = (resistanceHigh-resistanceLow)/2;
-          double sellRange = resistanceLow-range;
-          double sellStop = resistanceHigh+range;
+            string name = "Res_Sell#"+string(arrow_count+1);
+        
+            datetime object_time = (datetime)ObjectGetInteger(0, resistance, OBJPROP_TIME);
+            int object_bar = iBarShift(Symbol(), Period(), TimeLocal());
+            double candle = iClose(Symbol(), Period(), object_bar); // Retrieve the low price of the candle where the sell arrow appears
+            double candleHigh = iHigh(Symbol(), Period(), object_bar);
+            double candleLow = iLow(Symbol(), Period(), object_bar);
+            ObjectSetDouble(0, name, OBJPROP_PRICE, candle); // Attach the close price to the sell arrow object
 
-          string name = "Res_Sell#"+string(arrow_count+1);
-      
-          datetime object_time = (datetime)ObjectGetInteger(0, resistance, OBJPROP_TIME);
-          int object_bar = iBarShift(Symbol(), Period(), TimeLocal());
-          double candle = iClose(Symbol(), Period(), object_bar); // Retrieve the low price of the candle where the sell arrow appears
-          double candleHigh = iHigh(Symbol(), Period(), object_bar);
-          double candleLow = iLow(Symbol(), Period(), object_bar);
-          ObjectSetDouble(0, name, OBJPROP_PRICE, candle); // Attach the close price to the sell arrow object
-
-          // Ensure object_bar is within the range of available bars
-         if (object_bar < 0 || object_bar >= Bars(Symbol(), Period())) {
-            Print("Invalid object_bar index: ", object_bar);
-            continue;
-          }
-
-          if(price<resistanceHigh && candleHigh>resistanceLow){ 
-          
-            //PrintFormat("\nEntered Resistance Zone: Time = %s, Price = %f", TimeToString(TimeLocal()), price);
-          }
-          
-          //if(price < resistanceHigh && candleHigh > resistanceLow && price > sellRange && price < resistanceLow && arrow_count < arrows_num) continue;
-          
-          if (Close[i+1] > resistanceLow && Close[i] < resistanceLow && object_bar != lastArrowBarIndex){
-
-            PrintFormat("Price below Resistance Zone: %s, (Sell Arrow should appear)",resistance);
-
-            // Sell Arrow Signals  
-
-            color SellColor = clrBlack;
-            string obj_name="Res_Sell#"+string(arrow_count+1);
-            
-            if(object_bar >= 0 && object_bar < Bars(Symbol(), Period())){
-
-              ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[object_bar], High[object_bar] + dynamic_arrow_dist);
-              //ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
-              ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
-              ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-              ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
-              ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
-              ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-              ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-              arrow_count++;       
-              lastArrowBarIndex = object_bar;  
+            // Ensure object_bar is within the range of available bars
+            if (object_bar < 0 || object_bar >= Bars(Symbol(), Period())) {
+                Print("Invalid object_bar index: ", object_bar);
+                continue;
             }
-          }
 
-          
-          if(price<sellStop && price>resistanceHigh){
-            PrintFormat("Price above Resistance Zone, Price=%f, Don't put SELL orders!!!",price);
-          }
-          if(price>sellStop){
-            Print("Stop Loss");
-          }
+            if(price<resistanceHigh && candleHigh>resistanceLow){ 
+            
+                //PrintFormat("\nEntered Resistance Zone: Time = %s, Price = %f", TimeToString(TimeLocal()), price);
+            }
+            
+            //if(price < resistanceHigh && candleHigh > resistanceLow && price > sellRange && price < resistanceLow && arrow_count < arrows_num) continue;
+            
+            if (Close[i+1] > resistanceLow && Close[i] < resistanceLow && object_bar != lastArrowBarIndex){
+
+                PrintFormat("Price below Resistance Zone: %s, (Sell Arrow should appear)",resistance);
+
+                // Sell Arrow Signals  
+
+                color SellColor = clrBlack;
+                string obj_name="Res_Sell#"+string(arrow_count+1);
+                
+                if(object_bar >= 0 && object_bar < Bars(Symbol(), Period())){
+
+                ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[object_bar], High[object_bar] + dynamic_arrow_dist);
+                //ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
+                ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
+                ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+                ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
+                ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
+                ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+                ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+                arrow_count++;       
+                lastArrowBarIndex = object_bar;  
+                }
+            }
+
+            
+            if(price<sellStop && price>resistanceHigh){
+                PrintFormat("Price above Resistance Zone, Price=%f, Don't put SELL orders!!!",price);
+            }
+            if(price>sellStop){
+                Print("Stop Loss");
+            }
+            }
+            
+            // Buy Signals
+            if(StringFind(objectName, "SSSR#S")>-1){
+
+            support = objectName;
+            //Print("\nSupport: ", support);
+            double supportHigh = ObjectGetDouble(0, support, OBJPROP_PRICE,0);
+            double supportLow = ObjectGetDouble(0, support, OBJPROP_PRICE,1);
+            double range = (supportHigh-supportLow)/2;
+            double buyRange = supportHigh+range;
+            double buyStop = supportLow-range;
+
+            string name = "Sup_Buy#"+string(arrow_count+1);
+            
+            datetime object_time = (datetime)ObjectGetInteger(0, support, OBJPROP_TIME);
+            int object_bar = iBarShift(Symbol(), Period(), TimeLocal());
+            double candle = iClose(Symbol(), Period(), object_bar); // Retrieve the low price of the candle where the sell arrow appears
+            double candleHigh = iHigh(Symbol(), Period(), object_bar);
+            double candleLow = iLow(Symbol(), Period(), object_bar);
+            ObjectSetDouble(0, name, OBJPROP_PRICE, candle);
+
+            // Ensure object_bar is within the range of available bars
+            if (object_bar < 0 || object_bar >= Bars(Symbol(), Period())) {
+                Print("Invalid object_bar index: ", object_bar);
+                continue;
+            }
+    
+            if(price>supportLow && candleLow<supportHigh){ 
+                
+                //PrintFormat("\nEntered Support Zone: Time = %s, Price = %f", TimeToString(TimeLocal()), price);
+            }
+            //if(price > supportLow && candleLow < supportHigh && price < buyRange && price > supportHigh && arrow_count < arrows_num)continue;
+                
+            if(Close[i+1] < supportHigh && Close[i] > supportHigh && object_bar != lastArrowBarIndex){
+
+                PrintFormat("Price above the Support Zone: %s,  (Buy Arrow should appear)",support);
+                
+                // Buy Arrow Signal 
+                color BuyColor = clrBlack;
+                string obj_name = "Sup_Buy#"+string(arrow_count+1);
+
+                if(object_bar >= 0 && object_bar < Bars(Symbol(), Period())){
+
+                ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[object_bar], High[object_bar] + dynamic_arrow_dist);
+                //ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
+                ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
+                ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+                ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
+                ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
+                ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+                ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+                arrow_count++;  
+                lastArrowBarIndex = object_bar;
+                }
+            }  
+            
+            if(price>buyStop && price<supportLow){
+                PrintFormat("Price below Support Zone, Price=%f, Don't put BUY orders!!!", price);
+            }
+            if(price<buyStop){
+                Print("Stop Loss");
+            }
+            }
+        }
+        }
+
+        //Indicator  Buffer Stoch Buy
+        if(stoch_main[i]>stoch_oversold && stoch_main[i+1]<stoch_oversold){  
+        
+        if (isStochArrowActive && arrow_count<arrows_num){
+
+            color BuyColor = clrBrown;
+
+            string obj_name="StochBuy#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++;             
+        }
+
+        }    
+
+        //Indicator  Buffer StochX Buy
+        else if(stoch_main[i]>stoch_signal[i]&& stoch_main[i+1]<stoch_signal[i+1] && stoch_main[i]<10 && stoch_signal[i]<10){ 
+        
+        if (isStochXArrowActive && arrow_count<arrows_num){
+
+            color BuyColor = clrBrown;
+            string obj_name="StochXBuy#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++;             
+        }
+
+        }
+        else{
+        BufferStochBuy[i] = EMPTY_VALUE;
         }
         
-        // Buy Signals
-        if(StringFind(objectName, "SSSR#S")>-1){
+        //Indicator Buffer Stoch Sell
+        if(stoch_main[i]<stoch_overbought && stoch_main[i+1]>stoch_overbought){
 
-          support = objectName;
-          //Print("\nSupport: ", support);
-          double supportHigh = ObjectGetDouble(0, support, OBJPROP_PRICE,0);
-          double supportLow = ObjectGetDouble(0, support, OBJPROP_PRICE,1);
-          double range = (supportHigh-supportLow)/2;
-          double buyRange = supportHigh+range;
-          double buyStop = supportLow-range;
+        if (isStochArrowActive && arrow_count<arrows_num){
 
-          string name = "Sup_Buy#"+string(arrow_count+1);
-          
-          datetime object_time = (datetime)ObjectGetInteger(0, support, OBJPROP_TIME);
-          int object_bar = iBarShift(Symbol(), Period(), TimeLocal());
-          double candle = iClose(Symbol(), Period(), object_bar); // Retrieve the low price of the candle where the sell arrow appears
-          double candleHigh = iHigh(Symbol(), Period(), object_bar);
-          double candleLow = iLow(Symbol(), Period(), object_bar);
-          ObjectSetDouble(0, name, OBJPROP_PRICE, candle);
+            color SellColor = clrMagenta;
 
-          // Ensure object_bar is within the range of available bars
-         if (object_bar < 0 || object_bar >= Bars(Symbol(), Period())) {
-            Print("Invalid object_bar index: ", object_bar);
-            continue;
-          }
- 
-          if(price>supportLow && candleLow<supportHigh){ 
-            
-            //PrintFormat("\nEntered Support Zone: Time = %s, Price = %f", TimeToString(TimeLocal()), price);
-          }
-          //if(price > supportLow && candleLow < supportHigh && price < buyRange && price > supportHigh && arrow_count < arrows_num)continue;
-            
-          if(Close[i+1] < supportHigh && Close[i] > supportHigh && object_bar != lastArrowBarIndex){
-
-            PrintFormat("Price above the Support Zone: %s,  (Buy Arrow should appear)",support);
-            
-            // Buy Arrow Signal 
-            color BuyColor = clrBlack;
-            string obj_name = "Sup_Buy#"+string(arrow_count+1);
-
-            if(object_bar >= 0 && object_bar < Bars(Symbol(), Period())){
-
-              ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[object_bar], High[object_bar] + dynamic_arrow_dist);
-              //ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
-              ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
-              ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-              ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
-              ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
-              ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-              ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-              arrow_count++;  
-              lastArrowBarIndex = object_bar;
-            }
-          }  
-          
-          if(price>buyStop && price<supportLow){
-            PrintFormat("Price below Support Zone, Price=%f, Don't put BUY orders!!!", price);
-          }
-          if(price<buyStop){
-            Print("Stop Loss");
-          }
+            string obj_name="StochSell#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++;
         }
-      }
-    }
 
-    //Indicator  Buffer Stoch Buy
+        }
+
+        //Indicator Buffer StochX Sell
+        else if(stoch_main[i]<stoch_signal[i] && stoch_main[i+1]>stoch_signal[i+1] && stoch_main[i]>90 && stoch_signal[i]>90){  
+
+        if (isStochXArrowActive && arrow_count<arrows_num){
     
-    if(stoch_main[i]>stoch_oversold && stoch_main[i+1]<stoch_oversold){  
-      
-      if (isStochArrowActive && arrow_count<arrows_num){
-
-        color BuyColor = clrBrown;
-
-        string obj_name="StochBuy#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++;             
-      }
-
-    }    
-
-    //Indicator  Buffer StochX Buy
-
-    else if(stoch_main[i]>stoch_signal[i]&& stoch_main[i+1]<stoch_signal[i+1] && stoch_main[i]<10 && stoch_signal[i]<10){ 
-      
-      if (isStochXArrowActive && arrow_count<arrows_num){
-
-        color BuyColor = clrBrown;
-        string obj_name="StochXBuy#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++;             
-      }
-
-    }
-    else{
-      BufferStochBuy[i] = EMPTY_VALUE;
-    }
-      
-    //Indicator Buffer Stoch Sell
-    
-    if(stoch_main[i]<stoch_overbought && stoch_main[i+1]>stoch_overbought){
-
-      if (isStochArrowActive && arrow_count<arrows_num){
-
-        color SellColor = clrMagenta;
-
-        string obj_name="StochSell#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++;
-      }
-
-    }
-
-    //Indicator Buffer StochX Sell
-
-    else if(stoch_main[i]<stoch_signal[i] && stoch_main[i+1]>stoch_signal[i+1] && stoch_main[i]>90 && stoch_signal[i]>90){  
-
-      if (isStochXArrowActive && arrow_count<arrows_num){
- 
-        color SellColor = clrMagenta;
-        string obj_name="StochXSell#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++;
-      }
-    }
-    else{
-      BufferStochSell[i] = EMPTY_VALUE;
-    }
-      
-    //Indicator Buffer Macd Buy
-
-    if(macd_main[i]>macd_signal[i] && macd_main[i+1]<macd_signal[i+1] && macd_main[i]<macd_lower_level){
-
-      if (isMacdArrowActive && arrow_count<arrows_num){
-   
-        color BuyColor = clrGreen;
-        string obj_name="MacdBuy#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-ArrowDist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++; 
-                      
-      }
-
-    }
-    else{
-      BufferMacdBuy[i] = EMPTY_VALUE;
-    }
-      
-    //Indicator Buffer Macd Sell
-
-    if(macd_main[i]<macd_signal[i] && macd_main[i+1]>macd_signal[i+1] && macd_main[i]>macd_upper_level){
-
-      if (isMacdArrowActive && arrow_count<arrows_num){
-      
-        color SellColor = clrRed;
-        string obj_name="MacdSell#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+ArrowDist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++;
-      }
-    }
-    else{
-      BufferMacdSell[i] = EMPTY_VALUE;
-    }
-
-    //Indicator Buffer Rsi Buy
-    
-    if(rsi_main[i]>rsi_oversold && rsi_main[i+1]<rsi_oversold){
-
-      if (isRsiArrowActive && arrow_count<arrows_num){
-  
-        color BuyColor = C'124,69,69';
-        string obj_name="RsiBuy#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++;           
+            color SellColor = clrMagenta;
+            string obj_name="StochXSell#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++;
+        }
+        }
+        else{
+        BufferStochSell[i] = EMPTY_VALUE;
+        }
         
-      }
+        //Indicator Buffer Macd Buy
+        if(macd_main[i]>macd_signal[i] && macd_main[i+1]<macd_signal[i+1] && macd_main[i]<macd_lower_level){
 
-    }
-    else{
-      BufferRsiBuy[i] = EMPTY_VALUE;
-    }
-      
-    //Indicator Buffer Rsi Sell
+        if (isMacdArrowActive && arrow_count<arrows_num){
     
-    if(rsi_main[i] < rsi_overbought && rsi_main[i+1] > rsi_overbought){ 
+            color BuyColor = clrGreen;
+            string obj_name="MacdBuy#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-ArrowDist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++; 
+                        
+        }
 
-      if (isRsiArrowActive && arrow_count<arrows_num){
-
-        color SellColor = clrBlue;
-        string obj_name="RsiSell#"+string(arrow_count+1);
-        ObjectCreate(0,obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++; 
-      }
-    }
-    else{
-      BufferRsiSell[i] = EMPTY_VALUE;
-    }
-
-    //Indicator Buffer MA Buy
-    
-    if(ema9[i] > ema50[i] && ema9[i+1] < ema50[i+1]){
-
-      if (isMAArrowActive && arrow_count<arrows_num){
- 
-        color BuyColor = clrGold;
-        string obj_name="MABuy#"+IntegerToString(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+        }
+        else{
+        BufferMacdBuy[i] = EMPTY_VALUE;
+        }
         
-        arrow_count++;              
-      }
-    }
-    else{
-      BufferMABuy[i] = EMPTY_VALUE;
-    }
-      
-    //Indicator Buffer MA Sell
-    
-    if(ema9[i] < ema50[i] && ema9[i+1] > ema50[i+1]){ 
+        //Indicator Buffer Macd Sell
+        if(macd_main[i]<macd_signal[i] && macd_main[i+1]>macd_signal[i+1] && macd_main[i]>macd_upper_level){
 
-      if (isMAArrowActive && arrow_count<arrows_num){
- 
-        color SellColor = C'204,186,25';
-        string obj_name="MASell#"+string(arrow_count+1);
-        ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
-        ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
-        ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
-        ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
-        ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
-        ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
-        ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
-        arrow_count++;
-      }
+        if (isMacdArrowActive && arrow_count<arrows_num){
+        
+            color SellColor = clrRed;
+            string obj_name="MacdSell#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+ArrowDist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++;
+        }
+        }
+        else{
+        BufferMacdSell[i] = EMPTY_VALUE;
+        }
+
+        //Indicator Buffer Rsi Buy   
+        if(rsi_main[i]>rsi_oversold && rsi_main[i+1]<rsi_oversold){
+
+        if (isRsiArrowActive && arrow_count<arrows_num){
+    
+            color BuyColor = C'124,69,69';
+            string obj_name="RsiBuy#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++;           
+            
+        }
+
+        }
+        else{
+        BufferRsiBuy[i] = EMPTY_VALUE;
+        }
+        
+        //Indicator Buffer Rsi Sell   
+        if(rsi_main[i] < rsi_overbought && rsi_main[i+1] > rsi_overbought){ 
+
+        if (isRsiArrowActive && arrow_count<arrows_num){
+
+            color SellColor = clrBlue;
+            string obj_name="RsiSell#"+string(arrow_count+1);
+            ObjectCreate(0,obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++; 
+        }
+        }
+        else{
+        BufferRsiSell[i] = EMPTY_VALUE;
+        }
+
+        //Indicator Buffer MA Buy   
+        if(ema9[i] > ema50[i] && ema9[i+1] < ema50[i+1]){
+
+        if (isMAArrowActive && arrow_count<arrows_num){
+    
+            color BuyColor = clrGold;
+            string obj_name="MABuy#"+IntegerToString(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], Low[i]-dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, BuyColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 233);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_BOTTOM);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            
+            arrow_count++;              
+        }
+        }
+        else{
+        BufferMABuy[i] = EMPTY_VALUE;
+        }
+        
+        //Indicator Buffer MA Sell
+        
+        if(ema9[i] < ema50[i] && ema9[i+1] > ema50[i+1]){ 
+
+        if (isMAArrowActive && arrow_count<arrows_num){
+    
+            color SellColor = C'204,186,25';
+            string obj_name="MASell#"+string(arrow_count+1);
+            ObjectCreate(0, obj_name, OBJ_ARROW, 0, Time[i], High[i]+dynamic_arrow_dist);
+            ObjectSetInteger(0, obj_name, OBJPROP_COLOR, SellColor);
+            ObjectSetInteger(0, obj_name,OBJPROP_WIDTH,3); // Adjust width as needed
+            ObjectSetInteger(0, obj_name, OBJPROP_ARROWCODE, 234);
+            ObjectSetInteger(0,obj_name,OBJPROP_ANCHOR,ANCHOR_TOP);
+            ObjectSetInteger(0,obj_name,OBJPROP_HIDDEN,false);
+            ObjectSetInteger(0,obj_name,OBJPROP_BACK,true);
+            arrow_count++;
+        }
+        }
+        else{
+        BufferMASell[i] = EMPTY_VALUE;
+        }
     }
-    else{
-      BufferMASell[i] = EMPTY_VALUE;
-    }
-  }
    
   /*Comment("+------------------------------------------------------+",
           "\n| GOLDMINER Version: 2.0 by Hacker217|",

@@ -22,19 +22,31 @@
 #property indicator_color2 0x0000FF
 #property indicator_label2 "Sell"
 
+#define PLOT_MAXIMUM_BARS_BACK
+#define OMIT_OLDEST_BARS
+
+input group "==== Number of Bars ===="
+input int PLOT_MAXIMUM_BARS_BACK maxBars = 200;
+input int OMIT_OLDEST_BARS oldBars = 50;
+input int arrows_num = 50;
+input double ArrowDist = 1;
+
+input group "==== SIGNALS ===="
+input ENUM_TIMEFRAMES timeframe = PERIOD_CURRENT;
+input bool isSupResActive = false;  // Show Support and Resistance Signals
+input bool isTrendlineActive = false;  // Show Trendline Signals
+
+input group "==== VARIABLE INPUTS ===="
+input bool Audible_Alerts = true;
+datetime time_alert; //used when sending alert
+
 double Buffer1[];
 double Buffer2[];
-
 double Low[];
 double High[];
 double Close[];
-
-#define PLOT_MAXIMUM_BARS_BACK maxBars
-#define OMIT_OLDEST_BARS oldBars
-
 datetime Time[];
-int maxBars = 250;
-int oldBars = 50;
+
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -61,6 +73,8 @@ int OnInit(){
 
 int OnCalculate(const int rates_total,const int prev_calculated,const datetime &time[],const double &open[],const double &high[],const double &low[],const double &close[],const long &tick_volume[],const long &volume[],const int &spread[]){
                 
+  if(!IsNewBar()) return 0; // Exit if it's not a new bar 
+  
   int limit = rates_total - prev_calculated;
   // Ensure limit is valid
   if (limit <= 0) return rates_total;
@@ -77,25 +91,18 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
   else
     limit++;            
               
-  if(CopyLow(Symbol(), PERIOD_CURRENT, 0, rates_total, Low) <= 0) return(rates_total);
+ if(CopyLow(Symbol(), PERIOD_CURRENT, 0, rates_total, Low) <= 0) return(rates_total);
   ArraySetAsSeries(Low, true);
   if(CopyHigh(Symbol(), PERIOD_CURRENT, 0, rates_total, High) <= 0) return(rates_total);
   ArraySetAsSeries(High, true);
   if(CopyClose(Symbol(), PERIOD_CURRENT, 0, rates_total, Close) <= 0) return(rates_total);
   ArraySetAsSeries(Close, true);
+  if(CopyTime(Symbol(), Period(), 0, rates_total, Time) <= 0) return(rates_total);
+  ArraySetAsSeries(Time, true);
               
   for(int i = limit-1; i >= 0; i--){
 
-    // Ensure we do not access out of range
-    if(i < 0 || i >= rates_total) {
-      Print("Index out of range: ", i); // Debugging output
-      continue; // Check bounds for rates_total
-    }
-
-    if(i >= MathMin(PLOT_MAXIMUM_BARS_BACK-1, rates_total-1-OMIT_OLDEST_BARS)) continue; //omit some old rates to prevent "Array out of range" or slow calculation   
-
-    
-
+    if (i >= MathMin(maxBars-1, rates_total-1-oldBars)) continue; 
 
     int trendObjects = ObjectsTotal(0, -1, OBJ_TREND);  // Get total trendline objects
     for(int i = trendObjects - 1; i >= 0; i--){
@@ -106,17 +113,18 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
         string name = ObjectName(0, i);  // Get trendline name
         // Check if the object is a valid trendline
         if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND){
+
           datetime currentBarTime = iTime(NULL, 0, 0);  // Current bar's time
           double trendlinePrice = ObjectGetValueByTime(0, name, currentBarTime, 0);  // Trendline price
           
           if(trendlinePrice > 0){  // Ensure a valid price is retrieved
-            double currentPrice = Close[0];  // Use the current bid price (or Close[0])
 
+            double currentPrice = Close[0];  // Use the current bid price (or Close[0])
             // Check for a downward cross (price breaks below trendline)
             if(currentPrice < trendlinePrice){
 
               Print("Price crossed below trendline: ", name, " | Trendline Price: ", trendlinePrice, " | Current Price: ", currentPrice);
-              DrawArrowSell("Trend", i, arrowPrice, clrBlack, 10);
+              DrawArrowSell("Trend", i,High[1], clrBlack, 10);
               
             }
           }
@@ -429,4 +437,15 @@ void DrawArrowSell(string arrowPrefix, int i, double arrowPrice, color arrowColo
     ObjectSetInteger(0, arrowName, OBJPROP_HIDDEN, false);
     ObjectSetInteger(0, arrowName, OBJPROP_BACK, true);
   }
+}
+
+bool IsNewBar(){
+  static datetime previousTime = 0;
+  datetime currentTime = iTime(_Symbol,PERIOD_M5,0);
+  if(previousTime != currentTime){
+
+    previousTime = currentTime;
+    return true;
+  }
+  return false;
 }
