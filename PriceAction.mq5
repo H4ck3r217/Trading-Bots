@@ -26,21 +26,26 @@
 
 #define PLOT_MAXIMUM_BARS_BACK 250
 #define OMIT_OLDEST_BARS 50
-#define LICENSED_TRADE_SYMBOLS {"AUDUSD","USDJPY","EURUSD","Boom 500 Index"};
-#define LICENSED_TRADE_MODES {ACCOUNT_TRADE_MODE_CONTEST,ACCOUNT_TRADE_MODE_DEMO};
+#define LICENSED_TRADE_SYMBOLS {"AUDUSD","USDJPY","EURUSD","Boom 500 Index"};               // Edit here for Symbols 
+#define LICENSED_TRADE_MODES {ACCOUNT_TRADE_MODE_CONTEST,ACCOUNT_TRADE_MODE_DEMO};          // Edit here for Account Type
 #define LICENSED_EXPIRY_DATE_START D'2024.11.21'
-#define LICENSED_EXPIRY_DAYS 2
+#define LICENSED_EXPIRY_DATE_COMPILE __DATETIME__
+#define LICENSED_EXPIRY_DAYS 1                                                              // Edit here for days untill expiry date
 
 long current_AccountNo() { return AccountInfoInteger(ACCOUNT_LOGIN);}
 long Current_Account_Mode(){ return AccountInfoInteger(ACCOUNT_TRADE_MODE);}
 string Current_Chart_Symbol(){ return Symbol();}
-long UserAccounts[] = {24202600,24202602,24202603,24202604};
+
+// User Accounts
+long Frank = 24202602;              // Demo account
+
+long UserAccounts[] = {24202600,Frank,24202603,24202604};                                // Edit here to add/remove Trading Accounts
 
 //+------------------------------------------------------------------+
 //| ACCOUNT COPY PROTECTION                                          |
 //+------------------------------------------------------------------+
 
-// Edit here for user trading account 
+// User Trading Account 
 bool CheckAccountNo(long acc_Inp, long &accounts[], int accountCount){ 
 
   bool isValid = false; 
@@ -102,9 +107,9 @@ bool CheckTradeModes(){
 }
 
 // Function to check the expiry date
-bool CheckExpiryDate(){
+bool CheckExpiryDate_CompileTime(){
 
-  datetime expiryDate = LICENSED_EXPIRY_DATE_START + (LICENSED_EXPIRY_DAYS * 24 * 60 * 60);
+  datetime expiryDate = LICENSED_EXPIRY_DATE_COMPILE + (LICENSED_EXPIRY_DAYS * 86400);
   int secondsRemaining = int(expiryDate - TimeCurrent());
   int days = secondsRemaining / (24 * 3600);
   int hours = (secondsRemaining % (24 * 3600)) / 3600;
@@ -116,6 +121,7 @@ bool CheckExpiryDate(){
     return false;
   }
 
+  Print("Indicator complied on: ", LICENSED_EXPIRY_DATE_COMPILE);                              // For Users Subscription
   Print("Indicator expires on: ", TimeToString(expiryDate, TIME_DATE | TIME_MINUTES));
   Print("Remaining: ", days, " Days ", hours, " Hours ", mins, " Minutes");
   return true;
@@ -151,7 +157,7 @@ int OnInit(){
     return INIT_FAILED;
   }
 
-  if(!CheckExpiryDate()){  
+  if(!CheckExpiryDate_CompileTime()){  
     ChartIndicatorDelete(0,0,"PriceAction");
     Print("Removing Indicator");
     return INIT_FAILED;
@@ -536,7 +542,7 @@ void DrawOrderBlock(int candle_index, color block_color){
   string obj_name = "OrderBlock_" + IntegerToString(TimeCurrent()) + "_" + IntegerToString(candle_index);
 
   // Create order block rectangle
-  if(ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, D'1970.01.01 00:00', low_price)){
+  if(ObjectCreate(0, obj_name, OBJ_RECTANGLE, 0, Time[candle_index], high_price, Time[2]+36000, low_price)){
     
     // Set the properties of the rectangle (order block)
     ObjectSetInteger(0, obj_name, OBJPROP_COLOR, block_color);    // Set color
