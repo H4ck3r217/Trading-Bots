@@ -131,6 +131,30 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
         }
       }
       
+      double upperTrendline = TrendlinePriceUpper(i);
+      if(upperTrendline != -1){
+
+        string name = ObjectName(0, i);  // Get trendline name
+        // Check if the object is a valid trendline
+        if(ObjectGetInteger(0, name, OBJPROP_TYPE) == OBJ_TREND){
+
+          datetime currentBarTime = iTime(NULL, 0, 0);  // Current bar's time
+          double trendlinePrice = ObjectGetValueByTime(0, name, currentBarTime, 0);  // Trendline price
+          
+          if(trendlinePrice > 0){  // Ensure a valid price is retrieved
+
+            double currentPrice = Close[0];  // Use the current bid price (or Close[0])
+            // Check for a downward cross (price breaks below trendline)
+            if(currentPrice < trendlinePrice){
+
+              Print("Price crossed below trendline: ", name, " | Trendline Price: ", trendlinePrice, " | Current Price: ", currentPrice);
+              DrawArrowBuy("Buy", i,Low[0], clrBlack, 10);
+              
+            }
+          }
+        }
+
+      }
 
       //double upperTrendline = TrendlinePriceUpper(i);
       //if(upperTrendline != -1){
@@ -210,35 +234,6 @@ int ArrayFind(string &arr[], string value) {
         }
     }
     return -1; // Return -1 if not found
-}
-
-double TrendlinePriceLower(int shift){
-  
-  int obj_total = ObjectsTotal(0);  // Total number of objects on the chart
-  double minprice = DBL_MAX;        // Initialize with the highest possible value
-  datetime barTime = iTime(NULL, 0, shift);  // Time of the bar at 'shift'
-  
-  for (int i = 0; i < obj_total; i++){
-    string name = ObjectName(0, i);  // Get the object name
-    int type = (int)ObjectGetInteger(0, name, OBJPROP_TYPE);
-
-    // Debug: Log all object names and types
-    //Print("Object Name: ", name, " | Type: ", type);
-
-    // Check if the object is a trendline and contains "l" (or "l1")
-    if (type == OBJ_TREND && StringFind(name, "l") > -1) {
-      double price = ObjectGetValueByTime(0, name, barTime, 0);  // Get trendline price
-
-      // Debug: Log the price retrieval
-      Print("Checking Trendline: ", name, " | Time: ", TimeToString(barTime), " | Price: ", price);
-
-      if (price > 0 && price < minprice) {
-        minprice = price;  // Update the minimum price
-      }
-    }
-  }
-
-  return (minprice == DBL_MAX) ? -1 : minprice;  // Return the lowest price, or -1 if none found
 }
 
 int FindPreviousGreenCandleAboveTrendline(string trendlineName, double currentPrice){
@@ -357,10 +352,70 @@ void DrawOrderBlock(int candle_index, color block_color){
 }
 
 
-
 //+------------------------------------------------------------------+
 //| Wayback functions                                                |
 //+------------------------------------------------------------------+
+
+double TrendlinePriceLower(int shift){
+  
+  int obj_total = ObjectsTotal(0);  // Total number of objects on the chart
+  double minprice = DBL_MAX;        // Initialize with the highest possible value
+  datetime barTime = iTime(NULL, 0, shift);  // Time of the bar at 'shift'
+  
+  for (int i = 0; i < obj_total; i++){
+
+    string name = ObjectName(0, i);  // Get the object name
+    int type = (int)ObjectGetInteger(0, name, OBJPROP_TYPE);
+
+    // Debug: Log all object names and types
+    //Print("Object Name: ", name, " | Type: ", type);
+
+    // Check if the object is a trendline and contains "l" (or "l1")
+    if(type == OBJ_TREND && StringFind(name, "l") > -1){
+
+      double price = ObjectGetValueByTime(0, name, barTime, 0);  // Get trendline price
+      // Debug: Log the price retrieval
+      Print("Checking Lower Trendline: ", name, " | Time: ", TimeToString(barTime), " | Price: ", price);
+
+      if (price > 0 && price < minprice) {
+        minprice = price;  // Update the minimum price
+      }
+    }
+  }
+
+  return (minprice == DBL_MAX) ? -1 : minprice;  // Return the lowest price, or -1 if none found
+}
+
+double TrendlinePriceUpper(int shift){
+  
+  int obj_total = ObjectsTotal(0);  // Total number of objects on the chart
+  double maxprice = -DBL_MAX;       // Initialize with the lowest possible value
+  datetime barTime = iTime(NULL, 0, shift);  // Time of the bar at 'shift'
+  
+  for (int i = 0; i < obj_total; i++){
+
+    string name = ObjectName(0, i);  // Get the object name
+    int type = (int)ObjectGetInteger(0, name, OBJPROP_TYPE);
+
+    // Debug: Log all object names and types
+    //Print("Object Name: ", name, " | Type: ", type);
+
+    // Check if the object is a trendline and contains "l" (or "l1")
+    if(type == OBJ_TREND && StringFind(name, "u") > -1){
+
+      double price = ObjectGetValueByTime(0, name, barTime, 0);  // Get trendline price
+      // Debug: Log the price retrieval
+      Print("Checking Upper Trendline: ", name, " | Time: ", TimeToString(barTime), " | Price: ", price);
+
+      if(price > 0 && price > maxprice){
+
+        maxprice = price;  // Update the maximum price
+      }
+    }
+  }
+  
+  return (maxprice == -DBL_MAX) ? -1 : maxprice;  // Return the highest price, or -1 if none found
+}
 
 bool IsArrowSellExists(string arrowName, datetime time){
 
@@ -432,6 +487,39 @@ void DrawArrowSell(string arrowPrefix, int i, double arrowPrice, color arrowColo
     ObjectSetInteger(0, arrowName, OBJPROP_WIDTH, 3);
     ObjectSetInteger(0, arrowName, OBJPROP_ARROWCODE,234);
     ObjectSetInteger(0, arrowName, OBJPROP_ANCHOR,ANCHOR_TOP);
+    ObjectSetInteger(0, arrowName, OBJPROP_HIDDEN, false);
+    ObjectSetInteger(0, arrowName, OBJPROP_BACK, true);
+  }
+}
+
+void DrawArrowBuy(string arrowPrefix, int i, double arrowPrice, color arrowColor, int arrowFilter){
+
+  bool arrowExists = false;
+  for(int k = 0; k < maxBars - oldBars; k++){
+
+    string arrowName = ObjectName(0, k);
+    if (StringFind(arrowName, arrowPrefix) > -1){
+
+      datetime arrowTime = (datetime)ObjectGetInteger(0, arrowName, OBJPROP_TIME);
+      if(Time[i] - arrowTime < PeriodSeconds(PERIOD_CURRENT) * arrowFilter){
+
+        arrowExists = true;
+        break;
+      }
+    }
+  }
+  if(!arrowExists){
+
+    string arrowName = arrowPrefix + "#" + IntegerToString(Time[i]);
+
+    if(!IsArrowSellExists(arrowName, Time[i]))
+    if(!IsArrowBuyExists(arrowName, Time[i]))
+
+    ObjectCreate(0, arrowName, OBJ_ARROW, 0, Time[i], arrowPrice);
+    ObjectSetInteger(0, arrowName, OBJPROP_COLOR, arrowColor);
+    ObjectSetInteger(0, arrowName, OBJPROP_WIDTH, 3);
+    ObjectSetInteger(0, arrowName, OBJPROP_ARROWCODE,233);
+    ObjectSetInteger(0, arrowName, OBJPROP_ANCHOR,ANCHOR_BOTTOM);
     ObjectSetInteger(0, arrowName, OBJPROP_HIDDEN, false);
     ObjectSetInteger(0, arrowName, OBJPROP_BACK, true);
   }
