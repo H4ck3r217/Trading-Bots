@@ -145,7 +145,7 @@ int OnCalculate(const int rates_total,const int prev_calculated,const datetime &
 
             double currentPrice = Close[0];  // Use the current bid price (or Close[0])
             // Check for a upward cross (price breaks above trendline)
-            if(currentPrice < trendlinePrice){
+            if(currentPrice > trendlinePrice){
 
               Print("Price crossed above trendline: ", name, " | Trendline Price: ", trendlinePrice, " | Current Price: ", currentPrice);
               DrawArrowBuy("Buy", i,Low[0], clrBlack, 10);
